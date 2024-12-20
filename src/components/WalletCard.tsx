@@ -36,7 +36,7 @@ export const WalletCard = ({ address, history, recentBets }: WalletCardProps) =>
           <h3 className="font-bold mb-2">贏得的回合</h3>
           <div className="flex flex-wrap gap-2">
             {winningEpochs.map((epoch) => (
-              <Badge key={epoch} variant="success" className="bg-win text-white">
+              <Badge key={epoch} variant="default" className="bg-win text-white">
                 回合 {epoch}
               </Badge>
             ))}
