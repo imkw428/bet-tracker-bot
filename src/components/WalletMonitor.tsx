@@ -30,29 +30,26 @@ export const WalletMonitor = () => {
     let interval: NodeJS.Timeout;
 
     if (monitoring) {
-      // Update current epoch every 5 seconds
       const updateEpoch = async () => {
         try {
           const epoch = await predictionService.getCurrentEpoch();
           setCurrentEpoch(Number(epoch));
         } catch (error) {
-          console.error('Error fetching current epoch:', error);
+          console.error('獲取當前回合錯誤:', error);
         }
       };
 
       updateEpoch();
       interval = setInterval(updateEpoch, 5000);
 
-      // Monitor new bets
       predictionService.onNewBet(address, (bet) => {
         setRecentBets(prev => [bet, ...prev].slice(0, 10));
         toast({
-          title: `New ${bet.type.toUpperCase()} Bet!`,
-          description: `Amount: ${bet.amount} BNB at Epoch ${bet.epoch}`,
+          title: `新的${bet.type === 'bull' ? '看漲' : '看跌'}下注!`,
+          description: `金額: ${bet.amount} BNB，回合: ${bet.epoch}`,
         });
       });
 
-      // Fetch history
       predictionService.getWalletHistory(address, 0, 0).then(setHistory);
     }
 
@@ -64,8 +61,8 @@ export const WalletMonitor = () => {
   const startMonitoring = () => {
     if (!address) {
       toast({
-        title: "Error",
-        description: "Please enter a wallet address",
+        title: "錯誤",
+        description: "請輸入錢包地址",
         variant: "destructive",
       });
       return;
@@ -76,16 +73,16 @@ export const WalletMonitor = () => {
   return (
     <div className="container mx-auto p-4 font-mono">
       <div className="mb-8 space-y-4">
-        <h1 className="text-2xl font-bold">PancakeSwap Prediction Monitor</h1>
+        <h1 className="text-2xl font-bold">PancakeSwap 預測監控</h1>
         <div className="flex gap-4">
           <Input
-            placeholder="Enter wallet address"
+            placeholder="輸入錢包地址"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             className="flex-1"
           />
           <Button onClick={startMonitoring} disabled={monitoring}>
-            {monitoring ? "Monitoring..." : "Start Monitoring"}
+            {monitoring ? "監控中..." : "開始監控"}
           </Button>
         </div>
       </div>
@@ -93,21 +90,21 @@ export const WalletMonitor = () => {
       {monitoring && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card className="p-4">
-            <h2 className="text-xl font-bold mb-4">Current Status</h2>
+            <h2 className="text-xl font-bold mb-4">當前狀態</h2>
             <div className="space-y-2">
-              <p>Current Epoch: <span className="animate-blink">{currentEpoch}</span></p>
-              <p>Monitoring: {address.slice(0, 6)}...{address.slice(-4)}</p>
+              <p>當前回合: <span className="animate-blink">{currentEpoch}</span></p>
+              <p>監控地址: {address.slice(0, 6)}...{address.slice(-4)}</p>
             </div>
           </Card>
 
           <Card className="p-4">
-            <h2 className="text-xl font-bold mb-4">Recent Bets</h2>
+            <h2 className="text-xl font-bold mb-4">最近下注</h2>
             <div className="space-y-2">
               {recentBets.map((bet, i) => (
                 <div key={i} className={`p-2 rounded ${
                   bet.type === 'bull' ? 'bg-win/10 text-win' : 'bg-loss/10 text-loss'
                 }`}>
-                  {bet.type.toUpperCase()} - {bet.amount} BNB (Epoch {bet.epoch})
+                  {bet.type === 'bull' ? '看漲' : '看跌'} - {bet.amount} BNB (回合 {bet.epoch})
                 </div>
               ))}
             </div>
@@ -115,29 +112,29 @@ export const WalletMonitor = () => {
 
           {history && (
             <Card className="p-4 md:col-span-2">
-              <h2 className="text-xl font-bold mb-4">Wallet History</h2>
+              <h2 className="text-xl font-bold mb-4">錢包歷史</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <h3 className="font-bold text-win mb-2">Bull Bets</h3>
+                  <h3 className="font-bold text-win mb-2">看漲下注</h3>
                   {history.bulls.map((bet, i) => (
                     <div key={i} className="text-sm">
-                      Epoch {bet.epoch}: {bet.amount} BNB
+                      回合 {bet.epoch}: {bet.amount} BNB
                     </div>
                   ))}
                 </div>
                 <div>
-                  <h3 className="font-bold text-loss mb-2">Bear Bets</h3>
+                  <h3 className="font-bold text-loss mb-2">看跌下注</h3>
                   {history.bears.map((bet, i) => (
                     <div key={i} className="text-sm">
-                      Epoch {bet.epoch}: {bet.amount} BNB
+                      回合 {bet.epoch}: {bet.amount} BNB
                     </div>
                   ))}
                 </div>
                 <div>
-                  <h3 className="font-bold text-neutral mb-2">Claims</h3>
+                  <h3 className="font-bold text-neutral mb-2">獲勝領取</h3>
                   {history.claims.map((claim, i) => (
                     <div key={i} className="text-sm">
-                      Epoch {claim.epoch}: {claim.amount} BNB
+                      回合 {claim.epoch}: {claim.amount} BNB
                     </div>
                   ))}
                 </div>
