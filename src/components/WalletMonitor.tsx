@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PredictionService } from '@/services/prediction';
 import { X } from 'lucide-react';
+import { WalletCard } from './WalletCard';
 
 interface Bet {
   type: 'bull' | 'bear';
@@ -36,19 +37,34 @@ export const WalletMonitor = () => {
     let interval: NodeJS.Timeout;
 
     if (monitoring && wallets.length > 0) {
-      const updateEpoch = async () => {
+      // 每3秒更新一次
+      const updateData = async () => {
         try {
+          // 更新當前回合
           const epoch = await predictionService.getCurrentEpoch();
           setCurrentEpoch(Number(epoch));
+
+          // 更新每個錢包的歷史記錄
+          for (const wallet of wallets) {
+            const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
+            setWallets(prevWallets =>
+              prevWallets.map(w => {
+                if (w.address === wallet.address) {
+                  return { ...w, history };
+                }
+                return w;
+              })
+            );
+          }
         } catch (error) {
-          console.error('獲取當前回合錯誤:', error);
+          console.error('更新數據時出錯:', error);
         }
       };
 
-      updateEpoch();
-      interval = setInterval(updateEpoch, 5000);
+      updateData();
+      interval = setInterval(updateData, 3000); // 每3秒更新一次
 
-      // 為每個錢包設置監聽
+      // 為每個錢包設置下注監聽
       wallets.forEach(wallet => {
         predictionService.onNewBet(wallet.address, (bet) => {
           setWallets(prevWallets => 
@@ -67,18 +83,6 @@ export const WalletMonitor = () => {
             title: `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)} 新的${bet.type === 'bull' ? '看漲' : '看跌'}下注!`,
             description: `金額: ${bet.amount} BNB，回合: ${bet.epoch}`,
           });
-        });
-
-        // 獲取每個錢包的歷史記錄
-        predictionService.getWalletHistory(wallet.address, 0, 0).then(history => {
-          setWallets(prevWallets =>
-            prevWallets.map(w => {
-              if (w.address === wallet.address) {
-                return { ...w, history };
-              }
-              return w;
-            })
-          );
         });
       });
     }
@@ -179,61 +183,14 @@ export const WalletMonitor = () => {
             </div>
           </Card>
 
+          {/* 使用新的 WalletCard 組件 */}
           {wallets.map(wallet => (
-            <div key={wallet.address} className="space-y-6">
-              <Card className="p-4">
-                <h2 className="text-xl font-bold mb-4">
-                  錢包 {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
-                </h2>
-
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-bold mb-2">最近下注</h3>
-                    <div className="space-y-2">
-                      {wallet.recentBets.map((bet, i) => (
-                        <div key={i} className={`p-2 rounded ${
-                          bet.type === 'bull' ? 'bg-win/10 text-win' : 'bg-loss/10 text-loss'
-                        }`}>
-                          {bet.type === 'bull' ? '看漲' : '看跌'} - {bet.amount} BNB (回合 {bet.epoch})
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {wallet.history && (
-                    <div>
-                      <h3 className="font-bold mb-2">歷史記錄</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <h4 className="font-bold text-win mb-2">看漲下注</h4>
-                          {wallet.history.bulls.map((bet, i) => (
-                            <div key={i} className="text-sm">
-                              回合 {bet.epoch}: {bet.amount} BNB
-                            </div>
-                          ))}
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-loss mb-2">看跌下注</h4>
-                          {wallet.history.bears.map((bet, i) => (
-                            <div key={i} className="text-sm">
-                              回合 {bet.epoch}: {bet.amount} BNB
-                            </div>
-                          ))}
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-neutral mb-2">獲勝領取</h4>
-                          {wallet.history.claims.map((claim, i) => (
-                            <div key={i} className="text-sm">
-                              回合 {claim.epoch}: {claim.amount} BNB
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            </div>
+            <WalletCard
+              key={wallet.address}
+              address={wallet.address}
+              history={wallet.history}
+              recentBets={wallet.recentBets}
+            />
           ))}
         </div>
       )}
