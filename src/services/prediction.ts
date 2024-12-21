@@ -11,8 +11,16 @@ const PREDICTION_ABI = [
 const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
 const BLOCKS_PER_QUERY = 2000;
 
-// 多個 RPC 節點以實現故障轉移
+// 更多備用 RPC 節點
 const RPC_ENDPOINTS = [
+  "https://bsc-dataseed1.defibit.io",
+  "https://bsc-dataseed2.defibit.io",
+  "https://bsc-dataseed3.defibit.io",
+  "https://bsc-dataseed4.defibit.io",
+  "https://bsc-dataseed1.ninicoin.io",
+  "https://bsc-dataseed2.ninicoin.io",
+  "https://bsc-dataseed3.ninicoin.io",
+  "https://bsc-dataseed4.ninicoin.io",
   "https://bsc-dataseed.binance.org",
   "https://bsc-dataseed1.binance.org",
   "https://bsc-dataseed2.binance.org",
@@ -25,6 +33,8 @@ export class PredictionService {
   private contract: ethers.Contract;
   private interface: ethers.Interface;
   private currentRpcIndex: number = 0;
+  private retryCount: number = 0;
+  private maxRetries: number = 3;
 
   constructor() {
     this.provider = this.createProvider();
@@ -33,30 +43,40 @@ export class PredictionService {
   }
 
   private createProvider(): ethers.JsonRpcProvider {
-    return new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex]);
+    const provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex]);
+    provider.pollingInterval = 1000; // 降低輪詢頻率以減少請求數
+    return provider;
   }
 
   private async switchToNextRpc(): Promise<void> {
+    console.log(`切換到下一個 RPC 節點，當前節點索引: ${this.currentRpcIndex}`);
     this.currentRpcIndex = (this.currentRpcIndex + 1) % RPC_ENDPOINTS.length;
     this.provider = this.createProvider();
     this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
+    
+    // 重置重試計數器
+    if (this.currentRpcIndex === 0) {
+      this.retryCount++;
+    }
   }
 
-  private async executeWithRetry<T>(operation: () => Promise<T>, retries = 3): Promise<T> {
-    for (let i = 0; i < retries; i++) {
+  private async executeWithRetry<T>(operation: () => Promise<T>): Promise<T> {
+    while (this.retryCount < this.maxRetries) {
       try {
         return await operation();
       } catch (error) {
-        console.error(`嘗試執行操作失敗 (${i + 1}/${retries}):`, error);
-        if (i < retries - 1) {
-          await this.switchToNextRpc();
-          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // 指數退避
-        } else {
-          throw error;
+        console.error(`操作失敗 (重試 ${this.retryCount + 1}/${this.maxRetries}):`, error);
+        
+        if (this.retryCount === this.maxRetries - 1) {
+          throw new Error('所有 RPC 節點都無法連接，請稍後再試');
         }
+        
+        await this.switchToNextRpc();
+        // 指數退避延遲
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, this.retryCount) * 1000));
       }
     }
-    throw new Error('所有重試都失敗了');
+    throw new Error('超過最大重試次數');
   }
 
   async getCurrentEpoch(): Promise<number> {
