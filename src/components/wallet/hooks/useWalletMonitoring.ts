@@ -30,7 +30,6 @@ export const useWalletMonitoring = (
         const updatedWallets = await Promise.all(
           latestWallets.map(async (wallet) => {
             const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
-            await supabaseService.updateWalletTime(wallet.address);
             
             return {
               address: wallet.address,
@@ -38,7 +37,6 @@ export const useWalletMonitoring = (
               history,
               recentBets: [],
               created_at: wallet.created_at || new Date().toISOString(),
-              total_time_on_list: wallet.total_time_on_list || 0,
             } as WalletData;
           })
         );
