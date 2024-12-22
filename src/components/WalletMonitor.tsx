@@ -7,7 +7,8 @@ import { WalletDashboard } from './WalletDashboard';
 import { useToast } from "@/components/ui/use-toast";
 import { useWalletData } from './wallet/hooks/useWalletData';
 import { useWalletMonitoring } from './wallet/hooks/useWalletMonitoring';
-import { PredictionService } from '@/services/prediction';
+import { MonitorHeader } from './wallet/components/MonitorHeader';
+import { MonitorControls } from './wallet/components/MonitorControls';
 
 export const WalletMonitor = () => {
   const { toast } = useToast();
@@ -39,28 +40,19 @@ export const WalletMonitor = () => {
       });
       return;
     }
-    predictionServiceRef.current = new PredictionService();
     setMonitoring(true);
     duneService.startTracking();
   };
 
   return (
     <div className="container mx-auto p-4 font-mono">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold">PancakeSwap 預測監控</h1>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSoundEnabled(!isSoundEnabled)}
-          >
-            <Volume2 className={isSoundEnabled ? 'text-green-500' : 'text-gray-400'} />
-          </Button>
-          <Button onClick={startMonitoring} disabled={monitoring}>
-            {monitoring ? "監控中..." : "開始監控"}
-          </Button>
-        </div>
-      </div>
+      <MonitorHeader />
+      <MonitorControls
+        isSoundEnabled={isSoundEnabled}
+        setSoundEnabled={setSoundEnabled}
+        monitoring={monitoring}
+        onStartMonitoring={startMonitoring}
+      />
 
       <WalletList
         wallets={wallets}

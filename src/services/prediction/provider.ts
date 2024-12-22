@@ -19,8 +19,7 @@ export class ProviderService {
     const provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex], {
       chainId: 56,
       name: 'bnb',
-      ensAddress: null,
-      staticNetwork: true // 優化性能
+      ensAddress: null
     });
     provider.pollingInterval = this.normalPollingInterval;
     return provider;
@@ -29,7 +28,7 @@ export class ProviderService {
   private async waitForRateLimit() {
     const now = Date.now();
     const timeSinceLastRequest = now - this.lastRequestTime;
-    const minDelay = REQUEST_DELAY * Math.pow(1.5, this.retryCount); // 指數退避
+    const minDelay = REQUEST_DELAY * Math.pow(1.5, this.retryCount);
     
     if (timeSinceLastRequest < minDelay) {
       await new Promise(resolve => setTimeout(resolve, minDelay - timeSinceLastRequest));
@@ -41,7 +40,7 @@ export class ProviderService {
   private getNextAvailableRpc(): string | null {
     const availableRpcs = RPC_ENDPOINTS.filter(rpc => !this.failedNodes.has(rpc));
     if (availableRpcs.length === 0) {
-      this.failedNodes.clear(); // 重置失敗節點列表
+      this.failedNodes.clear();
       return RPC_ENDPOINTS[0];
     }
     return availableRpcs[Math.floor(Math.random() * availableRpcs.length)];
@@ -55,17 +54,13 @@ export class ProviderService {
       throw new Error('No available RPC nodes');
     }
 
-    console.log(`Switching to RPC endpoint: ${nextRpc}`);
-    
     try {
       this.provider = new ethers.JsonRpcProvider(nextRpc, {
         chainId: 56,
         name: 'bnb',
-        ensAddress: null,
-        staticNetwork: true
+        ensAddress: null
       });
       
-      // 測試連接
       await this.provider.getNetwork();
       this.retryCount = 0;
       return this.provider;
@@ -78,7 +73,6 @@ export class ProviderService {
         throw new Error('All RPC nodes failed to connect');
       }
       
-      // 重試下一個節點
       return this.switchToNextRpc();
     }
   }
@@ -87,7 +81,6 @@ export class ProviderService {
     await this.waitForRateLimit();
     
     try {
-      // 測試當前提供者是否正常
       await this.provider.getNetwork();
       return this.provider;
     } catch (error) {
