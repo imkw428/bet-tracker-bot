@@ -24,6 +24,7 @@ interface WalletCardProps {
   analytics?: WalletAnalytics;
   currentEpoch: number;
   totalTimeOnList: number;
+  roundResults: Record<number, 'bull' | 'bear'>;
 }
 
 export const WalletCard = ({ 
@@ -31,7 +32,8 @@ export const WalletCard = ({
   history, 
   analytics,
   currentEpoch,
-  totalTimeOnList
+  totalTimeOnList,
+  roundResults
 }: WalletCardProps) => {
   const winningEpochs = history?.claims.map(claim => claim.epoch) || [];
   const hasHistory = history && (
@@ -57,7 +59,8 @@ export const WalletCard = ({
         epoch: roundEpoch,
         type: bet?.type || null,
         amount: bet?.amount || null,
-        won
+        won,
+        result: roundResults[roundEpoch]
       };
     });
   };

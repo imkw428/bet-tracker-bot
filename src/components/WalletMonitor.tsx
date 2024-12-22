@@ -14,7 +14,7 @@ export const WalletMonitor = () => {
     setWallets,
   } = useWalletData();
 
-  const { currentEpoch, predictionServiceRef } = useWalletMonitoring(
+  const { currentEpoch, predictionServiceRef, roundResults } = useWalletMonitoring(
     wallets,
     setWallets,
     isSoundEnabled,
@@ -29,6 +29,7 @@ export const WalletMonitor = () => {
         currentEpoch={currentEpoch}
         wallets={wallets}
         monitoring={monitoring}
+        roundResults={roundResults}
       />
     </div>
   );

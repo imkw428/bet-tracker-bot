@@ -12,6 +12,7 @@ export const useWalletMonitoring = (
 ) => {
   const { toast } = useToast();
   const [currentEpoch, setCurrentEpoch] = useState<number | null>(null);
+  const [roundResults, setRoundResults] = useState<Record<number, 'bull' | 'bear'>>({});
   const predictionServiceRef = useRef<PredictionService>();
 
   useEffect(() => {
@@ -25,6 +26,17 @@ export const useWalletMonitoring = (
       try {
         const epoch = await predictionService.getCurrentEpoch();
         setCurrentEpoch(Number(epoch));
+
+        // 獲取最近5回合的結果
+        for (let i = 0; i < 5; i++) {
+          const roundEpoch = Number(epoch) - i;
+          const roundInfo = await predictionService.getRoundInfo(roundEpoch);
+          
+          if (roundInfo && roundInfo.closePrice && roundInfo.lockPrice) {
+            const result = roundInfo.closePrice > roundInfo.lockPrice ? 'bull' : 'bear';
+            setRoundResults(prev => ({ ...prev, [roundEpoch]: result }));
+          }
+        }
 
         for (const wallet of wallets) {
           const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
@@ -97,5 +109,5 @@ export const useWalletMonitoring = (
     };
   }, [wallets, toast, isSoundEnabled, notificationSound]);
 
-  return { currentEpoch, predictionServiceRef };
+  return { currentEpoch, predictionServiceRef, roundResults };
 };

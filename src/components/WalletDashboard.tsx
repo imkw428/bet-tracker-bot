@@ -1,15 +1,14 @@
 import { Card } from "@/components/ui/card";
 import { WalletCard } from './WalletCard';
-import { formatDistanceToNow } from 'date-fns';
-import { zhTW } from 'date-fns/locale';
 
 interface WalletDashboardProps {
   currentEpoch: number | null;
   wallets: any[];
   monitoring: boolean;
+  roundResults: Record<number, 'bull' | 'bear'>;
 }
 
-export const WalletDashboard = ({ currentEpoch, wallets, monitoring }: WalletDashboardProps) => {
+export const WalletDashboard = ({ currentEpoch, wallets, monitoring, roundResults }: WalletDashboardProps) => {
   if (!monitoring) return null;
 
   return (
@@ -31,6 +30,7 @@ export const WalletDashboard = ({ currentEpoch, wallets, monitoring }: WalletDas
           note={wallet.note}
           totalTimeOnList={wallet.total_time_on_list || 0}
           currentEpoch={currentEpoch || 0}
+          roundResults={roundResults}
         />
       ))}
     </div>
