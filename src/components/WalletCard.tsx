@@ -30,6 +30,7 @@ interface WalletCardProps {
   analytics?: WalletAnalytics;
   firstSeen: string;
   totalTimeOnList?: number;
+  currentEpoch: number;
 }
 
 export const WalletCard = ({ 
@@ -38,7 +39,8 @@ export const WalletCard = ({
   recentBets,
   analytics,
   firstSeen,
-  totalTimeOnList = 0
+  totalTimeOnList = 0,
+  currentEpoch
 }: WalletCardProps) => {
   const winningEpochs = history?.claims.map(claim => claim.epoch) || [];
   const hasHistory = history && (
@@ -61,7 +63,7 @@ export const WalletCard = ({
     }
   };
 
-  // 獲取最近五個回合的記錄
+  // 獲取最近五個回合的記錄，從當前回合開始
   const getRecentRounds = () => {
     if (!history) return [];
     
@@ -70,20 +72,14 @@ export const WalletCard = ({
       ...history.bears.map(bet => ({ ...bet, type: 'bear' as const }))
     ];
 
-    // 找出最大的 epoch
-    const maxEpoch = Math.max(
-      ...allBets.map(bet => bet.epoch),
-      ...winningEpochs
-    );
-
-    // 生成最近 5 個回合的數據
+    // 從當前回合開始，生成最近 5 個回合的數據
     return Array.from({ length: 5 }, (_, index) => {
-      const currentEpoch = maxEpoch - index;
-      const bet = allBets.find(b => b.epoch === currentEpoch);
-      const won = winningEpochs.includes(currentEpoch);
+      const roundEpoch = currentEpoch - index;
+      const bet = allBets.find(b => b.epoch === roundEpoch);
+      const won = winningEpochs.includes(roundEpoch);
       
       return {
-        epoch: currentEpoch,
+        epoch: roundEpoch,
         type: bet?.type || null,
         amount: bet?.amount || null,
         won

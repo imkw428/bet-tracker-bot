@@ -33,6 +33,7 @@ export const WalletDashboard = ({ currentEpoch, wallets, monitoring }: WalletDas
             addSuffix: true,
             locale: zhTW 
           })}
+          currentEpoch={currentEpoch || 0}
         />
       ))}
     </div>
