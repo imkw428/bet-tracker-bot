@@ -25,8 +25,7 @@ export const useWalletData = () => {
               note: w.note || '',
               history,
               recentBets: [],
-              created_at: w.created_at,
-              total_time_on_list: w.total_time_on_list || 0
+              created_at: w.created_at || new Date().toISOString(),
             };
           })
         );
@@ -59,7 +58,6 @@ export const useWalletData = () => {
         history,
         recentBets: [],
         created_at: newWallet.created_at,
-        total_time_on_list: 0
       };
       
       setWallets(prev => [...prev, walletData]);

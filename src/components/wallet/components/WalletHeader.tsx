@@ -1,7 +1,7 @@
 interface WalletHeaderProps {
   address: string;
   hasHistory: boolean;
-  totalTimeOnList: number;
+  totalTimeOnList?: number;
 }
 
 export const WalletHeader = ({ 
@@ -14,9 +14,11 @@ export const WalletHeader = ({
       <h3 className="text-lg font-semibold">
         {`${address.slice(0, 6)}...${address.slice(-4)}`}
       </h3>
-      <span className="text-sm text-neutral-500">
-        {`On List Time: ${totalTimeOnList} min`}
-      </span>
+      {totalTimeOnList !== undefined && (
+        <span className="text-sm text-neutral-500">
+          {`On List Time: ${totalTimeOnList} min`}
+        </span>
+      )}
     </div>
   );
 };

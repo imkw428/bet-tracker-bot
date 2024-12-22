@@ -4,7 +4,6 @@ interface WalletData {
   address: string;
   note: string;
   created_at?: string;
-  total_time_on_list?: number;
 }
 
 class SupabaseService {
@@ -29,7 +28,7 @@ class SupabaseService {
     try {
       const { data, error } = await this.client
         .from('wallets')
-        .select('*');
+        .select('address, note, created_at');
 
       if (error) {
         console.error('獲取錢包列表失敗:', error);
@@ -50,7 +49,6 @@ class SupabaseService {
         .insert([{ 
           address: address.toLowerCase(), 
           note,
-          total_time_on_list: 0,
           created_at: new Date().toISOString()
         }])
         .select()
@@ -65,35 +63,6 @@ class SupabaseService {
     } catch (error) {
       console.error('添加錢包失敗:', error);
       return null;
-    }
-  }
-
-  async updateWalletTime(address: string): Promise<boolean> {
-    try {
-      const { data: wallet } = await this.client
-        .from('wallets')
-        .select('total_time_on_list')
-        .eq('address', address)
-        .single();
-
-      if (wallet) {
-        const newTotalTime = (wallet.total_time_on_list || 0) + 1;
-
-        const { error } = await this.client
-          .from('wallets')
-          .update({ total_time_on_list: newTotalTime })
-          .eq('address', address);
-
-        if (error) {
-          console.error('更新錢包時間失敗:', error);
-          return false;
-        }
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('更新錢包時間失敗:', error);
-      return false;
     }
   }
 

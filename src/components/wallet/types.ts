@@ -12,5 +12,4 @@ export interface WalletData {
   recentBets: Bet[];
   note: string;
   created_at: string;
-  total_time_on_list?: number;
 }

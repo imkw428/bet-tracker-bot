@@ -25,7 +25,7 @@ interface WalletCardProps {
   note: string;
   analytics?: WalletAnalytics;
   currentEpoch: number;
-  totalTimeOnList: number;
+  totalTimeOnList?: number;
   roundResults: Record<number, 'bull' | 'bear'>;
 }
 
