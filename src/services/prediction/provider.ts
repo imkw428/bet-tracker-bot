@@ -5,9 +5,9 @@ export class ProviderService {
   private provider: ethers.JsonRpcProvider;
   private currentRpcIndex: number = 0;
   private retryCount: number = 0;
-  private readonly maxRetries: number = 3;
-  private readonly normalPollingInterval = 3000;
-  private readonly intensivePollingInterval = 1000;
+  private readonly maxRetries: number = 5;
+  private readonly normalPollingInterval = 5000;
+  private readonly intensivePollingInterval = 2000;
   private lastRequestTime: number = 0;
   private failedNodes: Set<string> = new Set();
 
@@ -28,7 +28,7 @@ export class ProviderService {
   private async waitForRateLimit() {
     const now = Date.now();
     const timeSinceLastRequest = now - this.lastRequestTime;
-    const minDelay = REQUEST_DELAY * Math.pow(1.5, this.retryCount);
+    const minDelay = REQUEST_DELAY * Math.pow(2, this.retryCount); // Exponential backoff
     
     if (timeSinceLastRequest < minDelay) {
       await new Promise(resolve => setTimeout(resolve, minDelay - timeSinceLastRequest));
@@ -40,7 +40,7 @@ export class ProviderService {
   private getNextAvailableRpc(): string | null {
     const availableRpcs = RPC_ENDPOINTS.filter(rpc => !this.failedNodes.has(rpc));
     if (availableRpcs.length === 0) {
-      this.failedNodes.clear();
+      this.failedNodes.clear(); // Reset failed nodes if all are failed
       return RPC_ENDPOINTS[0];
     }
     return availableRpcs[Math.floor(Math.random() * availableRpcs.length)];
@@ -55,13 +55,14 @@ export class ProviderService {
     }
 
     try {
-      this.provider = new ethers.JsonRpcProvider(nextRpc, {
+      const newProvider = new ethers.JsonRpcProvider(nextRpc, {
         chainId: 56,
         name: 'bnb',
         ensAddress: null
       });
       
-      await this.provider.getNetwork();
+      await newProvider.getNetwork();
+      this.provider = newProvider;
       this.retryCount = 0;
       return this.provider;
     } catch (error) {
