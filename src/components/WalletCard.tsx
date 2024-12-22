@@ -4,6 +4,7 @@ import { WalletHeader } from "./wallet/components/WalletHeader";
 import { WalletAnalyticsDisplay } from "./wallet/components/WalletAnalytics";
 import { BettingHistory } from "./wallet/components/BettingHistory";
 import { Badge } from "@/components/ui/badge";
+import { Database } from "lucide-react";
 
 interface Bet {
   type: 'bull' | 'bear';
@@ -50,6 +51,19 @@ export const WalletCard = ({
     return claim.timestamp >= oneHourAgo;
   }).length || 0;
 
+  // 檢查是否為大額操作者 (累積超過20次未領獎)
+  const unclaimedWins = history?.bulls.concat(history.bears).filter(bet => {
+    const result = roundResults[bet.epoch];
+    if (!result) return false;
+    
+    // 檢查是否贏了但還沒領獎
+    const won = (bet.type === result);
+    const claimed = winningEpochs.includes(bet.epoch);
+    return won && !claimed;
+  }).length || 0;
+
+  const isLargeOperator = unclaimedWins >= 20;
+
   const getRecentRounds = () => {
     if (!history) return [];
     
@@ -74,14 +88,26 @@ export const WalletCard = ({
   };
 
   return (
-    <Card className="p-4 bg-white dark:bg-gray-900 shadow-lg hover:shadow-xl transition-all duration-300 border border-emerald-100 dark:border-emerald-800">
+    <Card className={`p-4 shadow-lg hover:shadow-xl transition-all duration-300 border ${
+      isLargeOperator 
+        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' 
+        : 'bg-white dark:bg-gray-900 border-emerald-100 dark:border-emerald-800'
+    }`}>
       <div className="space-y-4">
         <div className="flex justify-between items-start">
-          <WalletHeader
-            address={address}
-            hasHistory={hasHistory}
-            totalTimeOnList={totalTimeOnList}
-          />
+          <div className="flex items-center gap-2">
+            <WalletHeader
+              address={address}
+              hasHistory={hasHistory}
+              totalTimeOnList={totalTimeOnList}
+            />
+            {isLargeOperator && (
+              <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                <Database className="w-4 h-4" />
+                <span className="text-xs">大額操作者</span>
+              </div>
+            )}
+          </div>
           {recentClaimsCount > 0 && (
             <Badge variant={recentClaimsCount >= 6 ? "destructive" : "secondary"}>
               {recentClaimsCount} 次領獎
