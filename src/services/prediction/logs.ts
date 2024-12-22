@@ -11,7 +11,8 @@ export class LogService {
     for (let start = fromBlock; start <= toBlock; start += batchSize) {
       const end = Math.min(start + batchSize - 1, toBlock);
       ranges.push([start, end]);
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // 增加查詢間隔到10秒，減少API調用頻率
+      await new Promise(resolve => setTimeout(resolve, 10000));
     }
     return ranges;
   }
@@ -19,7 +20,8 @@ export class LogService {
   async queryLogsInBatches(address: string): Promise<WalletHistory> {
     const provider = await providerService.getProvider();
     const latestBlock = await provider.getBlockNumber();
-    const fromBlock = latestBlock - 100;
+    // 減少查詢區塊範圍，只查詢最近50個區塊
+    const fromBlock = latestBlock - 50;
     const ranges = await this.getBlockRanges(fromBlock, latestBlock);
 
     const filter = {
@@ -42,7 +44,8 @@ export class LogService {
 
     for (const [start, end] of ranges) {
       try {
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        // 增加查詢間隔到8秒
+        await new Promise(resolve => setTimeout(resolve, 8000));
         
         const logs = await provider.getLogs({
           ...filter,
@@ -65,7 +68,8 @@ export class LogService {
         }
       } catch (error) {
         console.error(`Error fetching logs for range ${start}-${end}:`, error);
-        await new Promise(resolve => setTimeout(resolve, 8000));
+        // 錯誤時增加等待時間到15秒
+        await new Promise(resolve => setTimeout(resolve, 15000));
         continue;
       }
     }

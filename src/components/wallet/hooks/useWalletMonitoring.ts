@@ -15,6 +15,7 @@ export const useWalletMonitoring = (
   const [currentEpoch, setCurrentEpoch] = useState<number | null>(null);
   const [roundResults, setRoundResults] = useState<Record<number, 'bull' | 'bear'>>({});
   const predictionServiceRef = useRef<PredictionService>();
+  const lastUpdateRef = useRef<number>(0);
 
   useEffect(() => {
     if (!predictionServiceRef.current) {
@@ -24,6 +25,12 @@ export const useWalletMonitoring = (
     const predictionService = predictionServiceRef.current;
 
     const updateWalletData = async () => {
+      // 檢查是否需要更新（每5分鐘更新一次）
+      const now = Date.now();
+      if (now - lastUpdateRef.current < 5 * 60 * 1000) {
+        return;
+      }
+      
       try {
         const latestWallets = await supabaseService.getWallets();
         
@@ -42,6 +49,7 @@ export const useWalletMonitoring = (
         );
 
         setWallets(updatedWallets);
+        lastUpdateRef.current = now;
         
         toast({
           title: "錢包資料已更新",
@@ -98,8 +106,8 @@ export const useWalletMonitoring = (
 
       } catch (error) {
         console.error('檢查下一回合時間時發生錯誤:', error);
-        // 如果發生錯誤，1分鐘後重試
-        setTimeout(checkAndScheduleNextUpdate, 60000);
+        // 如果發生錯誤，2分鐘後重試
+        setTimeout(checkAndScheduleNextUpdate, 120000);
       }
     };
 
