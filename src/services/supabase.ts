@@ -5,7 +5,6 @@ interface WalletData {
   note: string;
   created_at?: string;
   total_time_on_list?: number;
-  last_seen_at?: string;
 }
 
 class SupabaseService {
@@ -58,7 +57,6 @@ class SupabaseService {
           address, 
           note, 
           total_time_on_list: 0,
-          last_seen_at: now,
           created_at: now
         }])
         .select()
@@ -78,24 +76,18 @@ class SupabaseService {
 
   async updateWalletTime(address: string): Promise<boolean> {
     try {
-      const now = new Date();
       const { data: wallet } = await this.client
         .from('wallets')
-        .select('last_seen_at, total_time_on_list')
+        .select('total_time_on_list')
         .eq('address', address)
         .single();
 
       if (wallet) {
-        const lastSeen = new Date(wallet.last_seen_at);
-        const timeDiff = Math.floor((now.getTime() - lastSeen.getTime()) / (1000 * 60)); // 轉換為分鐘
-        const newTotalTime = (wallet.total_time_on_list || 0) + timeDiff;
+        const newTotalTime = (wallet.total_time_on_list || 0) + 1;
 
         const { error } = await this.client
           .from('wallets')
-          .update({ 
-            total_time_on_list: newTotalTime,
-            last_seen_at: now.toISOString()
-          })
+          .update({ total_time_on_list: newTotalTime })
           .eq('address', address);
 
         if (error) {
