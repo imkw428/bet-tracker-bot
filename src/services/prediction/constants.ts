@@ -7,18 +7,17 @@ export const PREDICTION_ABI = [
 ];
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-// Reduce block range to avoid rate limits
-export const BLOCKS_PER_QUERY = 200; // Reduced from 500
-// Increase delay between requests
-export const REQUEST_DELAY = 2000; // Increased from 1000
 
+export const BLOCKS_PER_QUERY = 100; // 降低每次查詢的區塊數量
+
+export const REQUEST_DELAY = 3000; // 增加請求延遲到 3 秒
+
+// 更新 RPC 節點列表，使用更穩定的節點
 export const RPC_ENDPOINTS = [
-  "https://bsc-dataseed.binance.org",
-  "https://bsc-dataseed1.defibit.io",
-  "https://bsc-dataseed1.ninicoin.io",
-  "https://bsc-dataseed2.defibit.io",
-  "https://binance.llamarpc.com",
   "https://bsc.publicnode.com",
   "https://1rpc.io/bnb",
+  "https://bsc.meowrpc.com",
+  "https://binance.nodereal.io",
+  "https://bsc-mainnet.public.blastapi.io",
   "https://bsc-rpc.gateway.pokt.network"
 ];
