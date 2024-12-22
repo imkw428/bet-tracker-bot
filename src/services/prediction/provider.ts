@@ -50,3 +50,5 @@ export class ProviderService {
     }
   }
 }
+
+export const providerService = ProviderService.getInstance();
