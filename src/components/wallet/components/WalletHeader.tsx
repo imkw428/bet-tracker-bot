@@ -16,7 +16,7 @@ export const WalletHeader = ({
           {`${address.slice(0, 6)}...${address.slice(-4)}`}
         </h3>
         <span className="text-sm text-gray-500">
-          {`觀察時間: ${Math.floor(totalTimeOnList / (60 * 24))}天 ${Math.floor((totalTimeOnList % (60 * 24)) / 60)}小時`}
+          {`監控時間: ${Math.floor(totalTimeOnList / (60 * 24))}天 ${Math.floor((totalTimeOnList % (60 * 24)) / 60)}小時`}
         </span>
       </div>
     </div>
