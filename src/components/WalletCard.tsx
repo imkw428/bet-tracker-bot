@@ -3,6 +3,7 @@ import { WalletAnalytics } from "@/types/wallet";
 import { WalletHeader } from "./wallet/components/WalletHeader";
 import { WalletAnalyticsDisplay } from "./wallet/components/WalletAnalytics";
 import { BettingHistory } from "./wallet/components/BettingHistory";
+import { Badge } from "@/components/ui/badge";
 
 interface Bet {
   type: 'bull' | 'bear';
@@ -42,6 +43,9 @@ export const WalletCard = ({
     history.claims.length > 0
   );
 
+  // 計算最近一小時的領獎次數
+  const recentClaimsCount = history?.claims.length || 0;
+
   const getRecentRounds = () => {
     if (!history) return [];
     
@@ -68,11 +72,18 @@ export const WalletCard = ({
   return (
     <Card className="p-4 bg-white dark:bg-gray-900 shadow-lg hover:shadow-xl transition-all duration-300 border border-emerald-100 dark:border-emerald-800">
       <div className="space-y-4">
-        <WalletHeader
-          address={address}
-          hasHistory={hasHistory}
-          totalTimeOnList={totalTimeOnList}
-        />
+        <div className="flex justify-between items-start">
+          <WalletHeader
+            address={address}
+            hasHistory={hasHistory}
+            totalTimeOnList={totalTimeOnList}
+          />
+          {recentClaimsCount > 0 && (
+            <Badge variant={recentClaimsCount >= 6 ? "destructive" : "secondary"}>
+              {recentClaimsCount} 次領獎
+            </Badge>
+          )}
+        </div>
 
         <WalletAnalyticsDisplay analytics={analytics} />
 
