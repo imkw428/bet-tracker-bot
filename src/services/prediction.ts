@@ -11,21 +11,18 @@ const PREDICTION_ABI = [
 const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
 const BLOCKS_PER_QUERY = 2000;
 
-// 更多備用 RPC 節點
+// Updated RPC endpoints with more reliable nodes
 const RPC_ENDPOINTS = [
-  "https://bsc-dataseed1.defibit.io",
-  "https://bsc-dataseed2.defibit.io",
-  "https://bsc-dataseed3.defibit.io",
-  "https://bsc-dataseed4.defibit.io",
-  "https://bsc-dataseed1.ninicoin.io",
-  "https://bsc-dataseed2.ninicoin.io",
-  "https://bsc-dataseed3.ninicoin.io",
-  "https://bsc-dataseed4.ninicoin.io",
-  "https://bsc-dataseed.binance.org",
-  "https://bsc-dataseed1.binance.org",
-  "https://bsc-dataseed2.binance.org",
-  "https://bsc-dataseed3.binance.org",
-  "https://bsc-dataseed4.binance.org",
+  "https://bsc-rpc.gateway.pokt.network",
+  "https://bsc-mainnet.public.blastapi.io",
+  "https://bsc.publicnode.com",
+  "https://binance.nodereal.io",
+  "https://bsc-mainnet.nodereal.io/v1/64a9df0874fb4a93b9d0a3849de012d3",
+  "https://rpc.ankr.com/bsc",
+  "https://bsc.rpc.blxrbdn.com",
+  "https://bsc.blockpi.network/v1/rpc/public",
+  "https://1rpc.io/bnb",
+  "https://bsc.meowrpc.com"
 ];
 
 export class PredictionService {
