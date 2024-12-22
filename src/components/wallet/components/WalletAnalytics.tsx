@@ -1,31 +1,33 @@
 import { WalletAnalytics as WalletAnalyticsType } from "@/types/wallet";
 
-interface WalletAnalyticsProps {
+interface WalletAnalyticsDisplayProps {
   analytics?: WalletAnalyticsType;
 }
 
-export const WalletAnalyticsDisplay = ({ analytics }: WalletAnalyticsProps) => {
+export const WalletAnalyticsDisplay = ({ analytics }: WalletAnalyticsDisplayProps) => {
   if (!analytics) return null;
 
   return (
-    <div className="grid grid-cols-3 gap-2 text-xs">
+    <div className="grid grid-cols-2 gap-4">
       <div>
-        <div className="font-bold mb-1">一致性</div>
-        <div className={`${analytics.consistency > 0.7 ? 'text-win' : 'text-neutral'}`}>
-          {(analytics.consistency * 100).toFixed(1)}%
-        </div>
+        <p className="text-sm text-neutral-500">總下注</p>
+        <p className="font-semibold">{analytics.totalBets} BNB</p>
       </div>
       <div>
-        <div className="font-bold mb-1">盈利能力</div>
-        <div className={`${analytics.profitability > 0 ? 'text-win' : 'text-loss'}`}>
-          {analytics.profitability.toFixed(3)} BNB
-        </div>
+        <p className="text-sm text-neutral-500">勝率</p>
+        <p className="font-semibold">{analytics.winRate}%</p>
       </div>
       <div>
-        <div className="font-bold mb-1">活跃度</div>
-        <div className={`${analytics.activityScore > 0.5 ? 'text-win' : 'text-neutral'}`}>
-          {(analytics.activityScore * 100).toFixed(1)}%
-        </div>
+        <p className="text-sm text-neutral-500">獲利</p>
+        <p className={`font-semibold ${analytics.profit >= 0 ? 'text-win' : 'text-loss'}`}>
+          {analytics.profit > 0 ? '+' : ''}{analytics.profit} BNB
+        </p>
+      </div>
+      <div>
+        <p className="text-sm text-neutral-500">ROI</p>
+        <p className={`font-semibold ${analytics.roi >= 0 ? 'text-win' : 'text-loss'}`}>
+          {analytics.roi > 0 ? '+' : ''}{analytics.roi}%
+        </p>
       </div>
     </div>
   );
