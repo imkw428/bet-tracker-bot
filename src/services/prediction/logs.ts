@@ -10,8 +10,10 @@ export class LogService {
 
   private async getBlockRanges(fromBlock: number, toBlock: number): Promise<Array<[number, number]>> {
     const ranges: Array<[number, number]> = [];
-    for (let start = fromBlock; start <= toBlock; start += BLOCKS_PER_QUERY) {
-      const end = Math.min(start + BLOCKS_PER_QUERY - 1, toBlock);
+    // 減少每批次的區塊數量
+    const batchSize = Math.floor(BLOCKS_PER_QUERY / 2);
+    for (let start = fromBlock; start <= toBlock; start += batchSize) {
+      const end = Math.min(start + batchSize - 1, toBlock);
       ranges.push([start, end]);
     }
     return ranges;
@@ -19,7 +21,8 @@ export class LogService {
 
   async queryLogsInBatches(address: string): Promise<WalletHistory> {
     const latestBlock = await this.provider.getBlockNumber();
-    const fromBlock = latestBlock - 10000;
+    // 減少查詢的區塊範圍
+    const fromBlock = latestBlock - 5000;
     const ranges = await this.getBlockRanges(fromBlock, latestBlock);
 
     const filter = {
@@ -70,9 +73,12 @@ export class LogService {
           }
         }
 
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // 增加請求之間的延遲
+        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
         console.error(`Error fetching logs for range ${start}-${end}:`, error);
+        // 發生錯誤時增加更長的延遲
+        await new Promise(resolve => setTimeout(resolve, 1000));
         throw error;
       }
     }
