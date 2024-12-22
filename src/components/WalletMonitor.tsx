@@ -8,6 +8,7 @@ import { X, Volume2 } from 'lucide-react';
 import { WalletCard } from './WalletCard';
 import { Textarea } from "@/components/ui/textarea";
 import { supabaseService } from '@/services/supabase';
+import { duneService } from '@/services/dune';
 
 interface Bet {
   type: 'bull' | 'bear';
@@ -51,6 +52,19 @@ export const WalletMonitor = () => {
 
     loadWallets();
   }, []);
+
+  // Start Dune tracking when monitoring starts
+  useEffect(() => {
+    if (monitoring) {
+      duneService.startTracking();
+    } else {
+      duneService.stopTracking();
+    }
+
+    return () => {
+      duneService.stopTracking();
+    };
+  }, [monitoring]);
 
   useEffect(() => {
     if (!monitoring || !predictionServiceRef.current) return;
