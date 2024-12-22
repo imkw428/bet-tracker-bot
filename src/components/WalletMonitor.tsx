@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -63,13 +63,14 @@ export const WalletMonitor = () => {
         const timeUntilNext = await predictionService.getTimeUntilNextRound();
         const shouldIntensivePolling = timeUntilNext <= 30000 && timeUntilNext > 0;
         
+        // 根據時間設定輪詢間隔
         predictionService.setPollingInterval(shouldIntensivePolling);
         
-        // Update current epoch
+        // 更新當前回合
         const epoch = await predictionService.getCurrentEpoch();
         setCurrentEpoch(Number(epoch));
 
-        // Update wallet histories
+        // 更新錢包歷史記錄
         for (const wallet of wallets) {
           const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
           setWallets(prevWallets =>
@@ -82,19 +83,19 @@ export const WalletMonitor = () => {
           );
         }
 
-        // Schedule next check based on timing
+        // 根據時間設定下次檢查的延遲
         const nextCheckDelay = shouldIntensivePolling ? 1000 : 3000;
         interval = setTimeout(checkRoundTiming, nextCheckDelay);
       } catch (error) {
-        console.error('Error updating data:', error);
-        interval = setTimeout(checkRoundTiming, 3000); // Retry after 3 seconds on error
+        console.error('更新資料時發生錯誤:', error);
+        interval = setTimeout(checkRoundTiming, 3000); // 發生錯誤時3秒後重試
       }
     };
 
-    // Start monitoring
+    // 開始監控
     checkRoundTiming();
 
-    // Set up bet listeners
+    // 設置下注監聽器
     const cleanupFns = wallets.map(wallet => {
       return predictionService.onNewBet(wallet.address, (bet) => {
         if (isSoundEnabled) {
@@ -185,6 +186,7 @@ export const WalletMonitor = () => {
       });
       return;
     }
+    predictionServiceRef.current = new PredictionService();
     setMonitoring(true);
   };
 
@@ -268,3 +270,4 @@ export const WalletMonitor = () => {
       )}
     </div>
   );
+};
