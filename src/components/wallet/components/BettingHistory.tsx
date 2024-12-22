@@ -22,6 +22,11 @@ interface BettingHistoryProps {
 }
 
 export const BettingHistory = ({ rounds }: BettingHistoryProps) => {
+  const formatAmount = (amount: string | null) => {
+    if (!amount) return "-";
+    return `${Number(amount).toFixed(3)} BNB`;
+  };
+
   return (
     <div className="overflow-x-auto">
       <Table>
@@ -70,7 +75,7 @@ export const BettingHistory = ({ rounds }: BettingHistoryProps) => {
               <TableCell className="text-right">
                 {round.amount ? (
                   <span className={round.won ? "text-win" : ""}>
-                    {round.amount} BNB
+                    {formatAmount(round.amount)}
                   </span>
                 ) : "-"}
               </TableCell>

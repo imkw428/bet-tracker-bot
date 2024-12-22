@@ -39,9 +39,9 @@ export class WalletAnalyticsService {
     const roi = totalBets > 0 ? (profit / totalBets) * 100 : 0;
 
     return {
-      totalBets: Number(totalBets.toFixed(4)),
+      totalBets: Number(totalBets.toFixed(3)),
       winRate: Number(winRate.toFixed(2)),
-      profit: Number(profit.toFixed(4)),
+      profit: Number(profit.toFixed(3)),
       roi: Number(roi.toFixed(2))
     };
   }

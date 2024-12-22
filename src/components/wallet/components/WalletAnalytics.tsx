@@ -11,7 +11,7 @@ export const WalletAnalyticsDisplay = ({ analytics }: WalletAnalyticsDisplayProp
     <div className="grid grid-cols-2 gap-4">
       <div>
         <p className="text-sm text-neutral-500">總下注</p>
-        <p className="font-semibold">{analytics.totalBets} BNB</p>
+        <p className="font-semibold">{analytics.totalBets.toFixed(3)} BNB</p>
       </div>
       <div>
         <p className="text-sm text-neutral-500">勝率</p>
@@ -20,7 +20,7 @@ export const WalletAnalyticsDisplay = ({ analytics }: WalletAnalyticsDisplayProp
       <div>
         <p className="text-sm text-neutral-500">獲利</p>
         <p className={`font-semibold ${analytics.profit >= 0 ? 'text-win' : 'text-loss'}`}>
-          {analytics.profit > 0 ? '+' : ''}{analytics.profit} BNB
+          {analytics.profit > 0 ? '+' : ''}{analytics.profit.toFixed(3)} BNB
         </p>
       </div>
       <div>
