@@ -1,8 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { WalletAnalytics } from "@/types/wallet";
-import { formatDistanceToNow } from 'date-fns';
-import { zhTW } from 'date-fns/locale';
 
 interface Bet {
   type: 'bull' | 'bear';
@@ -30,7 +28,6 @@ export const WalletCard = ({
   address, 
   history, 
   recentBets, 
-  note, 
   analytics,
   firstSeen,
   totalTimeOnList = 0
@@ -60,24 +57,19 @@ export const WalletCard = ({
   return (
     <Card className="p-4">
       <div className="space-y-4">
-        <div className="flex justify-between items-start">
-          <div className="space-y-1">
-            <h2 className="text-base font-bold">
-              {address.slice(0, 6)}...{address.slice(-4)}
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              首次發現: {firstSeen}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              累計時間: {formatTotalTime(totalTimeOnList)}
-            </p>
-            <Badge variant={hasHistory ? "default" : "secondary"} className="mt-1">
-              {hasHistory ? "舊錢包" : "新錢包"}
-            </Badge>
-          </div>
-          {note && (
-            <span className="text-xs text-muted-foreground">{note}</span>
-          )}
+        <div className="space-y-1">
+          <h2 className="text-base font-bold">
+            {address.slice(0, 6)}...{address.slice(-4)}
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            首次發現: {firstSeen}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            累計時間: {formatTotalTime(totalTimeOnList)}
+          </p>
+          <Badge variant={hasHistory ? "default" : "secondary"} className="mt-1">
+            {hasHistory ? "舊錢包" : "新錢包"}
+          </Badge>
         </div>
 
         {analytics && (
