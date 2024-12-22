@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { PREDICTION_ABI, PREDICTION_ADDRESS } from './constants';
+import { ABI, PREDICTION_ADDRESS } from './constants';
 import { ProviderService } from './provider';
 import { LogService } from './logs';
 import { BetEvent, RoundInfo } from './types';
@@ -12,17 +12,17 @@ export class PredictionService {
   private logService: LogService;
 
   constructor() {
-    this.provider = new ProviderService();
-    this.interface = new ethers.Interface(PREDICTION_ABI);
+    this.provider = ProviderService.getInstance();
+    this.interface = new ethers.Interface(ABI);
     this.initializeContract();
-    this.logService = new LogService(this.provider, this.interface);
+    this.logService = new LogService();
   }
 
   private async initializeContract() {
     const provider = await this.provider.getProvider();
     this.contract = new ethers.Contract(
       PREDICTION_ADDRESS,
-      PREDICTION_ABI,
+      ABI,
       provider
     );
   }
@@ -47,8 +47,8 @@ export class PredictionService {
       
       await new Promise(resolve => setTimeout(resolve, backoffDelay));
       
-      const newProvider = await this.provider.switchToNextRpc();
-      this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, newProvider);
+      const newProvider = await this.provider.switchProvider();
+      this.contract = new ethers.Contract(PREDICTION_ADDRESS, ABI, newProvider);
       
       return this.executeWithRetry(operation, retryCount + 1);
     }
@@ -105,10 +105,6 @@ export class PredictionService {
       this.contract.removeAllListeners("BetBull");
       this.contract.removeAllListeners("BetBear");
     };
-  }
-
-  setPollingInterval(intensive: boolean) {
-    this.provider.setPollingInterval(intensive);
   }
 }
 

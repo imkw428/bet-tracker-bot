@@ -8,11 +8,10 @@ export const ABI = [
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
 
-export const BLOCKS_PER_QUERY = 25; // 減少每次查詢的區塊範圍
+export const BLOCKS_PER_QUERY = 25;
 
-export const REQUEST_DELAY = 6000; // 增加基本延遲時間
+export const REQUEST_DELAY = 6000;
 
-// 更新為更穩定的 RPC 節點，並減少節點數量以降低切換頻率
 export const RPC_ENDPOINTS = [
   "https://bsc-dataseed.binance.org",
   "https://bsc-dataseed1.defibit.io",
