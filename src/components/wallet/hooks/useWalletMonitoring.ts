@@ -3,6 +3,7 @@ import { PredictionService } from '@/services/prediction';
 import { duneService } from '@/services/dune';
 import { useToast } from "@/components/ui/use-toast";
 import { WalletData } from '../types';
+import { supabaseService } from '@/services/supabase';
 
 export const useWalletMonitoring = (
   wallets: WalletData[],
@@ -22,6 +23,42 @@ export const useWalletMonitoring = (
 
     const predictionService = predictionServiceRef.current;
 
+    const updateWalletData = async () => {
+      try {
+        // 從資料庫獲取最新的錢包列表
+        const latestWallets = await supabaseService.getWallets();
+        
+        // 更新每個錢包的歷史記錄
+        const updatedWallets = await Promise.all(
+          latestWallets.map(async (wallet) => {
+            const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
+            // 更新錢包的在線時間
+            await supabaseService.updateWalletTime(wallet.address);
+            
+            return {
+              ...wallet,
+              history,
+              recentBets: [],
+            };
+          })
+        );
+
+        setWallets(updatedWallets);
+        
+        toast({
+          title: "錢包資料已更新",
+          description: `已更新 ${updatedWallets.length} 個錢包的資料`,
+        });
+      } catch (error) {
+        console.error('更新錢包資料時發生錯誤:', error);
+        toast({
+          title: "更新失敗",
+          description: "更新錢包資料時發生錯誤",
+          variant: "destructive",
+        });
+      }
+    };
+
     const fetchData = async () => {
       try {
         const epoch = await predictionService.getCurrentEpoch();
@@ -38,17 +75,8 @@ export const useWalletMonitoring = (
           }
         }
 
-        for (const wallet of wallets) {
-          const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
-          setWallets(prevWallets =>
-            prevWallets.map(w => {
-              if (w.address === wallet.address) {
-                return { ...w, history };
-              }
-              return w;
-            })
-          );
-        }
+        // 在每一局開始時更新錢包資料
+        await updateWalletData();
       } catch (error) {
         console.error('更新資料時發生錯誤:', error);
       }
@@ -60,9 +88,11 @@ export const useWalletMonitoring = (
       try {
         // 獲取距離下一回合的時間（毫秒）
         const timeUntilNextRound = await predictionService.getTimeUntilNextRound();
+        console.log('距離下一回合還有（毫秒）:', timeUntilNextRound);
         
         // 設定在下一回合開始時更新資料
         setTimeout(async () => {
+          console.log('開始更新新回合資料');
           await fetchData();
           // 遞迴調用以設定下一次更新
           checkAndScheduleNextUpdate();
