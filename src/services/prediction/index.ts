@@ -7,24 +7,40 @@ import { toast } from "@/components/ui/use-toast";
 
 export class PredictionService {
   private provider: ProviderService;
-  private contract: ethers.Contract;
+  private contract: ethers.Contract | null;
   private interface: ethers.Interface;
   private logService: LogService;
 
   constructor() {
     this.provider = ProviderService.getInstance();
     this.interface = new ethers.Interface(ABI);
-    this.initializeContract();
+    this.contract = null;
     this.logService = new LogService();
+    this.initializeContract();
   }
 
   private async initializeContract() {
-    const provider = await this.provider.getProvider();
-    this.contract = new ethers.Contract(
-      PREDICTION_ADDRESS,
-      ABI,
-      provider
-    );
+    try {
+      const provider = await this.provider.getProvider();
+      this.contract = new ethers.Contract(
+        PREDICTION_ADDRESS,
+        ABI,
+        provider
+      );
+    } catch (error) {
+      console.error('Failed to initialize contract:', error);
+      this.contract = null;
+    }
+  }
+
+  private async ensureContract() {
+    if (!this.contract) {
+      await this.initializeContract();
+      if (!this.contract) {
+        throw new Error('Contract initialization failed');
+      }
+    }
+    return this.contract;
   }
 
   private async executeWithRetry<T>(operation: () => Promise<T>, retryCount = 0): Promise<T> {
@@ -32,6 +48,7 @@ export class PredictionService {
     const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 10000);
 
     try {
+      const contract = await this.ensureContract();
       return await operation();
     } catch (error) {
       console.error(`Operation failed (retry ${retryCount + 1}/${maxRetries}):`, error);
@@ -56,13 +73,17 @@ export class PredictionService {
 
   async getCurrentEpoch(): Promise<number> {
     return this.executeWithRetry(async () => {
-      const epoch = await this.contract.currentEpoch();
+      const contract = await this.ensureContract();
+      const epoch = await contract.currentEpoch();
       return Number(epoch);
     });
   }
 
   async getRoundInfo(epoch: number): Promise<RoundInfo> {
-    return this.executeWithRetry(() => this.contract.rounds(epoch));
+    return this.executeWithRetry(async () => {
+      const contract = await this.ensureContract();
+      return contract.rounds(epoch);
+    });
   }
 
   async getTimeUntilNextRound(): Promise<number> {
@@ -77,33 +98,49 @@ export class PredictionService {
   }
 
   onNewBet(address: string, callback: (bet: BetEvent) => void) {
-    const setupListeners = () => {
-      this.contract.on("BetBull", (sender: string, epoch: bigint, amount: bigint) => {
-        if (sender.toLowerCase() === address.toLowerCase()) {
-          callback({
-            type: 'bull',
-            epoch: Number(epoch),
-            amount: ethers.formatEther(amount),
-          });
-        }
-      });
+    const setupListeners = async () => {
+      try {
+        const contract = await this.ensureContract();
+        
+        contract.on("BetBull", (sender: string, epoch: bigint, amount: bigint) => {
+          if (sender.toLowerCase() === address.toLowerCase()) {
+            callback({
+              type: 'bull',
+              epoch: Number(epoch),
+              amount: ethers.formatEther(amount),
+            });
+          }
+        });
 
-      this.contract.on("BetBear", (sender: string, epoch: bigint, amount: bigint) => {
-        if (sender.toLowerCase() === address.toLowerCase()) {
-          callback({
-            type: 'bear',
-            epoch: Number(epoch),
-            amount: ethers.formatEther(amount),
-          });
-        }
-      });
+        contract.on("BetBear", (sender: string, epoch: bigint, amount: bigint) => {
+          if (sender.toLowerCase() === address.toLowerCase()) {
+            callback({
+              type: 'bear',
+              epoch: Number(epoch),
+              amount: ethers.formatEther(amount),
+            });
+          }
+        });
+
+        return () => {
+          contract.removeAllListeners("BetBull");
+          contract.removeAllListeners("BetBear");
+        };
+      } catch (error) {
+        console.error('Failed to setup bet listeners:', error);
+        return () => {};
+      }
     };
 
-    setupListeners();
+    let cleanup: (() => void) | undefined;
+    setupListeners().then(cleanupFn => {
+      cleanup = cleanupFn;
+    });
 
     return () => {
-      this.contract.removeAllListeners("BetBull");
-      this.contract.removeAllListeners("BetBear");
+      if (cleanup) {
+        cleanup();
+      }
     };
   }
 }
