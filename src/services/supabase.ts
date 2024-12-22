@@ -15,11 +15,7 @@ class SupabaseService {
     const supabaseUrl = 'https://swnqaebpbjrmeetylkzb.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3bnFhZWJwYmpybWVldHlsa3piIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ4MjU2NDYsImV4cCI6MjA1MDQwMTY0Nn0.JvXRyTuOVx3i8nSmF3I9cJvyUbggtPHrBhqt6maFYbE';
 
-    this.client = createClient(supabaseUrl, supabaseKey, {
-      db: {
-        schema: 'public'
-      }
-    });
+    this.client = createClient(supabaseUrl, supabaseKey);
   }
 
   public static getInstance(): SupabaseService {
@@ -33,8 +29,7 @@ class SupabaseService {
     try {
       const { data, error } = await this.client
         .from('wallets')
-        .select('*')
-        .order('created_at', { ascending: true });
+        .select('*');
 
       if (error) {
         console.error('獲取錢包列表失敗:', error);
@@ -49,15 +44,14 @@ class SupabaseService {
   }
 
   async addWallet(address: string, note: string = ''): Promise<WalletData | null> {
-    const now = new Date().toISOString();
     try {
       const { data, error } = await this.client
         .from('wallets')
         .insert([{ 
-          address, 
-          note, 
+          address: address.toLowerCase(), 
+          note,
           total_time_on_list: 0,
-          created_at: now
+          created_at: new Date().toISOString()
         }])
         .select()
         .single();

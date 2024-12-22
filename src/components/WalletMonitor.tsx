@@ -16,7 +16,8 @@ export const WalletMonitor = () => {
   const {
     wallets,
     setWallets,
-    handleWalletAdd
+    handleWalletAdd,
+    isLoading
   } = useWalletData();
 
   const { currentEpoch, predictionServiceRef, roundResults } = useWalletMonitoring(
@@ -41,6 +42,14 @@ export const WalletMonitor = () => {
       });
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-4 font-mono">
+        <div className="text-center">載入中...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4 font-mono">
