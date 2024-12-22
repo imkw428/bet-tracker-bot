@@ -51,18 +51,20 @@ export const WalletCard = ({
     return claim.timestamp >= oneHourAgo;
   }).length || 0;
 
-  // 檢查是否為大額操作者 (累積超過20次未領獎)
-  const unclaimedWins = history?.bulls.concat(history.bears).filter(bet => {
-    const result = roundResults[bet.epoch];
-    if (!result) return false;
-    
-    // 檢查是否贏了但還沒領獎
-    const won = (bet.type === result);
-    const claimed = winningEpochs.includes(bet.epoch);
-    return won && !claimed;
-  }).length || 0;
+  // 檢查是否為大額操作者 (累積超過12次未領獎)
+  const unclaimedWins = history?.bulls.map(bet => ({...bet, type: 'bull' as const}))
+    .concat(history.bears.map(bet => ({...bet, type: 'bear' as const})))
+    .filter(bet => {
+      const result = roundResults[bet.epoch];
+      if (!result) return false;
+      
+      // 檢查是否贏了但還沒領獎
+      const won = (bet.type === result);
+      const claimed = winningEpochs.includes(bet.epoch);
+      return won && !claimed;
+    }).length || 0;
 
-  const isLargeOperator = unclaimedWins >= 20;
+  const isLargeOperator = unclaimedWins >= 12;
 
   const getRecentRounds = () => {
     if (!history) return [];
