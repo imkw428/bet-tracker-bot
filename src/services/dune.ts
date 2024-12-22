@@ -1,4 +1,4 @@
-import { DuneClient } from 'dune-client';
+import { DuneClient } from "@duneanalytics/client-sdk";
 import { supabaseService } from './supabase';
 import { walletAnalyticsService } from './walletAnalytics';
 
@@ -13,8 +13,18 @@ class DuneService {
 
   private async fetchWallets(): Promise<string[]> {
     try {
-      const result = await this.client.get_latest_result(4461837);
-      return result.map((item: any) => item.address.toLowerCase());
+      const result = await this.client.getLatestResult({
+        queryId: 4461837
+      });
+      
+      if (!result || !Array.isArray(result.result?.rows)) {
+        console.warn('Unexpected Dune API response format:', result);
+        return [];
+      }
+
+      return result.result.rows.map((row: any) => 
+        (row.address || '').toLowerCase()
+      ).filter(Boolean);
     } catch (error) {
       console.error('从 Dune 获取钱包时发生错误:', error);
       return [];
