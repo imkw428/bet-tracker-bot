@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { WalletAnalytics } from "@/types/wallet";
-import { formatDuration, intervalToDuration } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 
 interface Bet {
@@ -40,15 +40,9 @@ export const WalletCard = ({
     history.claims.length > 0
   );
 
-  // 計算持續時間
-  const duration = intervalToDuration({
-    start: new Date(firstSeen),
-    end: new Date()
-  });
-
-  const durationString = formatDuration(duration, {
+  const timeOnList = formatDistanceToNow(new Date(firstSeen), {
     locale: zhTW,
-    format: ['months', 'days', 'hours']
+    addSuffix: false
   });
 
   return (
@@ -60,7 +54,7 @@ export const WalletCard = ({
               {address.slice(0, 6)}...{address.slice(-4)}
             </h2>
             <p className="text-xs text-muted-foreground">
-              監控時長: {durationString}
+              on list: {timeOnList}
             </p>
             <Badge variant={hasHistory ? "default" : "secondary"} className="mt-1">
               {hasHistory ? "舊錢包" : "新錢包"}
