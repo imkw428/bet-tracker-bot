@@ -20,18 +20,39 @@ interface WalletCardProps {
   recentBets: Bet[];
   note: string;
   analytics?: WalletAnalytics;
+  firstSeen: string;
 }
 
-export const WalletCard = ({ address, history, recentBets, note, analytics }: WalletCardProps) => {
+export const WalletCard = ({ 
+  address, 
+  history, 
+  recentBets, 
+  note, 
+  analytics,
+  firstSeen 
+}: WalletCardProps) => {
   const winningEpochs = history?.claims.map(claim => claim.epoch) || [];
+  const hasHistory = history && (
+    history.bulls.length > 0 || 
+    history.bears.length > 0 || 
+    history.claims.length > 0
+  );
 
   return (
     <Card className="p-4">
       <div className="space-y-4">
         <div className="flex justify-between items-start">
-          <h2 className="text-base font-bold">
-            {address.slice(0, 6)}...{address.slice(-4)}
-          </h2>
+          <div className="space-y-1">
+            <h2 className="text-base font-bold">
+              {address.slice(0, 6)}...{address.slice(-4)}
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              首次出現: {firstSeen}
+            </p>
+            <Badge variant={hasHistory ? "default" : "secondary"} className="mt-1">
+              {hasHistory ? "舊錢包" : "新錢包"}
+            </Badge>
+          </div>
           {note && (
             <span className="text-xs text-muted-foreground">{note}</span>
           )}
