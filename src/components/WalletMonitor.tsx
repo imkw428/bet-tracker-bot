@@ -36,6 +36,7 @@ export const WalletMonitor = () => {
   const [wallets, setWallets] = useState<WalletData[]>([]);
   const [notificationSound] = useState(new Audio('/notification.mp3'));
   const [isSoundEnabled, setSoundEnabled] = useState(true);
+  const predictionServiceRef = useRef<PredictionService>();
 
   useEffect(() => {
     const loadWallets = async () => {
@@ -52,62 +53,76 @@ export const WalletMonitor = () => {
   }, []);
 
   useEffect(() => {
-    const predictionService = new PredictionService();
+    if (!monitoring || !predictionServiceRef.current) return;
+
     let interval: NodeJS.Timeout;
+    const predictionService = predictionServiceRef.current;
 
-    if (monitoring && wallets.length > 0) {
-      const updateData = async () => {
-        try {
-          const epoch = await predictionService.getCurrentEpoch();
-          setCurrentEpoch(Number(epoch));
+    const checkRoundTiming = async () => {
+      try {
+        const timeUntilNext = await predictionService.getTimeUntilNextRound();
+        const shouldIntensivePolling = timeUntilNext <= 30000 && timeUntilNext > 0;
+        
+        predictionService.setPollingInterval(shouldIntensivePolling);
+        
+        // Update current epoch
+        const epoch = await predictionService.getCurrentEpoch();
+        setCurrentEpoch(Number(epoch));
 
-          for (const wallet of wallets) {
-            const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
-            setWallets(prevWallets =>
-              prevWallets.map(w => {
-                if (w.address === wallet.address) {
-                  return { ...w, history };
-                }
-                return w;
-              })
-            );
-          }
-        } catch (error) {
-          console.error('更新數據時出錯:', error);
-        }
-      };
-
-      updateData();
-      interval = setInterval(updateData, 3000);
-
-      wallets.forEach(wallet => {
-        predictionService.onNewBet(wallet.address, (bet) => {
-          if (isSoundEnabled) {
-            notificationSound.play().catch(console.error);
-          }
-
-          setWallets(prevWallets => 
+        // Update wallet histories
+        for (const wallet of wallets) {
+          const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
+          setWallets(prevWallets =>
             prevWallets.map(w => {
               if (w.address === wallet.address) {
-                return {
-                  ...w,
-                  recentBets: [bet]  // 只保留最新的一筆下注
-                };
+                return { ...w, history };
               }
               return w;
             })
           );
+        }
 
-          toast({
-            title: `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)} 新的${bet.type === 'bull' ? '看漲' : '看跌'}下注!`,
-            description: `金額: ${bet.amount} BNB，回合: ${bet.epoch}`,
-          });
+        // Schedule next check based on timing
+        const nextCheckDelay = shouldIntensivePolling ? 1000 : 3000;
+        interval = setTimeout(checkRoundTiming, nextCheckDelay);
+      } catch (error) {
+        console.error('Error updating data:', error);
+        interval = setTimeout(checkRoundTiming, 3000); // Retry after 3 seconds on error
+      }
+    };
+
+    // Start monitoring
+    checkRoundTiming();
+
+    // Set up bet listeners
+    const cleanupFns = wallets.map(wallet => {
+      return predictionService.onNewBet(wallet.address, (bet) => {
+        if (isSoundEnabled) {
+          notificationSound.play().catch(console.error);
+        }
+
+        setWallets(prevWallets => 
+          prevWallets.map(w => {
+            if (w.address === wallet.address) {
+              return {
+                ...w,
+                recentBets: [bet]
+              };
+            }
+            return w;
+          })
+        );
+
+        toast({
+          title: `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)} 新的${bet.type === 'bull' ? '看漲' : '看跌'}下注!`,
+          description: `金額: ${bet.amount} BNB，回合: ${bet.epoch}`,
         });
       });
-    }
+    });
 
     return () => {
-      clearInterval(interval);
+      clearTimeout(interval);
+      cleanupFns.forEach(cleanup => cleanup && cleanup());
     };
   }, [monitoring, wallets, toast, isSoundEnabled, notificationSound]);
 
@@ -253,4 +268,3 @@ export const WalletMonitor = () => {
       )}
     </div>
   );
-};

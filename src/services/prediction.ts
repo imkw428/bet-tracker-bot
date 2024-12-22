@@ -11,7 +11,6 @@ const PREDICTION_ABI = [
 const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
 const BLOCKS_PER_QUERY = 2000;
 
-// Updated RPC endpoints with more reliable nodes and API keys
 const RPC_ENDPOINTS = [
   "https://bsc.getblock.io/mainnet/?api_key=your-api-key",
   "https://bsc.blockpi.network/v1/rpc/public",
@@ -29,7 +28,9 @@ export class PredictionService {
   private interface: ethers.Interface;
   private currentRpcIndex: number = 0;
   private retryCount: number = 0;
-  private maxRetries: number = 5; // Increased max retries
+  private maxRetries: number = 5;
+  private normalPollingInterval = 3000; // 3 seconds
+  private intensivePollingInterval = 1000; // 1 second
 
   constructor() {
     this.provider = this.createProvider();
@@ -39,12 +40,11 @@ export class PredictionService {
 
   private createProvider(): ethers.JsonRpcProvider {
     const provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex], {
-      staticNetwork: ethers.Network.from(56), // BSC mainnet
+      chainId: 56, // BSC mainnet
       batchMaxCount: 1, // Reduce batch size to avoid rate limits
-      polling: false, // Disable polling to reduce requests
-      staticNetwork: true // Use static network to avoid network detection
+      polling: false // Disable polling to reduce requests
     });
-    provider.pollingInterval = 3000; // Increased polling interval
+    provider.pollingInterval = this.normalPollingInterval;
     return provider;
   }
 
@@ -56,7 +56,6 @@ export class PredictionService {
     
     if (this.currentRpcIndex === 0) {
       this.retryCount++;
-      // Add exponential backoff delay
       await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, this.retryCount), 30000)));
     }
   }
@@ -87,6 +86,14 @@ export class PredictionService {
 
   async getRoundInfo(epoch: number) {
     return await this.executeWithRetry(() => this.contract.rounds(epoch));
+  }
+
+  async getTimeUntilNextRound(): Promise<number> {
+    const currentEpoch = await this.getCurrentEpoch();
+    const roundInfo = await this.getRoundInfo(currentEpoch);
+    const startTimestamp = Number(roundInfo.startTimestamp) * 1000; // Convert to milliseconds
+    const now = Date.now();
+    return startTimestamp - now;
   }
 
   private async getBlockRanges(fromBlock: number, toBlock: number): Promise<Array<[number, number]>> {
@@ -175,24 +182,39 @@ export class PredictionService {
   }
 
   onNewBet(address: string, callback: (bet: { type: 'bull' | 'bear', epoch: number, amount: string }) => void) {
-    this.contract.on("BetBull", (sender: string, epoch: bigint, amount: bigint) => {
-      if (sender.toLowerCase() === address.toLowerCase()) {
-        callback({
-          type: 'bull',
-          epoch: Number(epoch),
-          amount: ethers.formatEther(amount),
-        });
-      }
-    });
+    const setupListeners = () => {
+      this.contract.on("BetBull", (sender: string, epoch: bigint, amount: bigint) => {
+        if (sender.toLowerCase() === address.toLowerCase()) {
+          callback({
+            type: 'bull',
+            epoch: Number(epoch),
+            amount: ethers.formatEther(amount),
+          });
+        }
+      });
 
-    this.contract.on("BetBear", (sender: string, epoch: bigint, amount: bigint) => {
-      if (sender.toLowerCase() === address.toLowerCase()) {
-        callback({
-          type: 'bear',
-          epoch: Number(epoch),
-          amount: ethers.formatEther(amount),
-        });
-      }
-    });
+      this.contract.on("BetBear", (sender: string, epoch: bigint, amount: bigint) => {
+        if (sender.toLowerCase() === address.toLowerCase()) {
+          callback({
+            type: 'bear',
+            epoch: Number(epoch),
+            amount: ethers.formatEther(amount),
+          });
+        }
+      });
+    };
+
+    // Initial setup
+    setupListeners();
+
+    // Return cleanup function
+    return () => {
+      this.contract.removeAllListeners("BetBull");
+      this.contract.removeAllListeners("BetBear");
+    };
+  }
+
+  setPollingInterval(intensive: boolean) {
+    this.provider.pollingInterval = intensive ? this.intensivePollingInterval : this.normalPollingInterval;
   }
 }
