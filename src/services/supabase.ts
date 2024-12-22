@@ -32,18 +32,29 @@ class SupabaseService {
 
       if (error) {
         console.error('獲取錢包列表失敗:', error);
-        return [];
+        throw error;
       }
 
       return data || [];
     } catch (error) {
       console.error('獲取錢包列表失敗:', error);
-      return [];
+      throw error;
     }
   }
 
   async addWallet(address: string, note: string = ''): Promise<WalletData | null> {
     try {
+      // 檢查是否已存在
+      const { data: existingWallet } = await this.client
+        .from('wallets')
+        .select('address')
+        .eq('address', address.toLowerCase())
+        .single();
+
+      if (existingWallet) {
+        throw new Error('此錢包已在監控列表中');
+      }
+
       const { data, error } = await this.client
         .from('wallets')
         .insert([{ 
@@ -56,13 +67,13 @@ class SupabaseService {
 
       if (error) {
         console.error('添加錢包失敗:', error);
-        return null;
+        throw error;
       }
 
       return data;
     } catch (error) {
       console.error('添加錢包失敗:', error);
-      return null;
+      throw error;
     }
   }
 
@@ -75,13 +86,13 @@ class SupabaseService {
 
       if (error) {
         console.error('更新錢包備註失敗:', error);
-        return false;
+        throw error;
       }
 
       return true;
     } catch (error) {
       console.error('更新錢包備註失敗:', error);
-      return false;
+      throw error;
     }
   }
 
@@ -90,17 +101,17 @@ class SupabaseService {
       const { error } = await this.client
         .from('wallets')
         .delete()
-        .eq('address', address);
+        .eq('address', address.toLowerCase());
 
       if (error) {
         console.error('刪除錢包失敗:', error);
-        return false;
+        throw error;
       }
 
       return true;
     } catch (error) {
       console.error('刪除錢包失敗:', error);
-      return false;
+      throw error;
     }
   }
 }

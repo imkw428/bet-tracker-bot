@@ -29,9 +29,34 @@ export const WalletMonitor = () => {
 
   const handleAddWallet = async (address: string) => {
     try {
+      // 檢查地址格式
+      if (!address || address.length !== 42 || !address.startsWith('0x')) {
+        toast({
+          title: "錯誤",
+          description: "請輸入有效的錢包地址",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // 檢查是否已存在
+      const exists = wallets.some(w => w.address.toLowerCase() === address.toLowerCase());
+      if (exists) {
+        toast({
+          title: "錯誤",
+          description: "此錢包已在監控列表中",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const wallet = await supabaseService.addWallet(address);
       if (wallet) {
         await handleWalletAdd(wallet);
+        toast({
+          title: "成功",
+          description: "已成功添加新錢包到監控列表",
+        });
       }
     } catch (error) {
       console.error('添加錢包時發生錯誤:', error);
@@ -43,8 +68,24 @@ export const WalletMonitor = () => {
     }
   };
 
-  const handleDeleteWallet = (address: string) => {
-    setWallets(prev => prev.filter(w => w.address !== address));
+  const handleDeleteWallet = async (address: string) => {
+    try {
+      const success = await supabaseService.deleteWallet(address);
+      if (success) {
+        setWallets(prev => prev.filter(w => w.address !== address));
+        toast({
+          title: "成功",
+          description: "已成功從監控列表中移除錢包",
+        });
+      }
+    } catch (error) {
+      console.error('刪除錢包時發生錯誤:', error);
+      toast({
+        title: "錯誤",
+        description: "刪除錢包時發生錯誤",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {
