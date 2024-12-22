@@ -23,13 +23,15 @@ interface WalletCardProps {
   note: string;
   analytics?: WalletAnalytics;
   currentEpoch: number;
+  totalTimeOnList: number;
 }
 
 export const WalletCard = ({ 
   address, 
   history, 
   analytics,
-  currentEpoch
+  currentEpoch,
+  totalTimeOnList
 }: WalletCardProps) => {
   const winningEpochs = history?.claims.map(claim => claim.epoch) || [];
   const hasHistory = history && (
@@ -66,6 +68,7 @@ export const WalletCard = ({
         <WalletHeader
           address={address}
           hasHistory={hasHistory}
+          totalTimeOnList={totalTimeOnList}
         />
 
         <WalletAnalyticsDisplay analytics={analytics} />

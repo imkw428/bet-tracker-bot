@@ -29,6 +29,7 @@ export const WalletDashboard = ({ currentEpoch, wallets, monitoring }: WalletDas
           history={wallet.history}
           recentBets={wallet.recentBets}
           note={wallet.note}
+          totalTimeOnList={wallet.total_time_on_list || 0}
           currentEpoch={currentEpoch || 0}
         />
       ))}
