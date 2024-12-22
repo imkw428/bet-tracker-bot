@@ -63,7 +63,7 @@ export const WalletCard = ({
   };
 
   return (
-    <Card className="p-4">
+    <Card className="p-4 bg-gradient-to-br from-white to-blue-50 dark:from-gray-900 dark:to-gray-800 shadow-lg hover:shadow-xl transition-all duration-300">
       <div className="space-y-4">
         <WalletHeader
           address={address}
