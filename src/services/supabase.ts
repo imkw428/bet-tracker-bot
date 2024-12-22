@@ -20,21 +20,38 @@ class SupabaseService {
 
   private async initializeDatabase() {
     try {
-      // 檢查表格是否存在
-      const { error: checkError } = await this.client
-        .from('wallets')
-        .select('*')
-        .limit(1);
+      // 創建表格的 SQL
+      const createTableSQL = `
+        create table if not exists public.wallets (
+          id uuid default gen_random_uuid() primary key,
+          address text not null unique,
+          note text,
+          created_at timestamp with time zone default timezone('utc'::text, now()) not null
+        );
 
-      // 如果表格不存在，創建它
-      if (checkError && checkError.code === '42P01') {
-        const { error: createError } = await this.client
-          .rpc('create_wallets_table', {});
+        alter table public.wallets enable row level security;
+        
+        drop policy if exists "Enable all access for all users" on public.wallets;
+        create policy "Enable all access for all users" on public.wallets
+          for all
+          using (true)
+          with check (true);
+      `;
 
-        if (createError) {
-          console.error('創建表格失敗:', createError);
-        } else {
-          console.log('成功創建 wallets 表格');
+      const { error } = await this.client.rpc('exec_sql', { sql: createTableSQL });
+      
+      if (error) {
+        console.error('創建表格失敗:', error);
+        // 如果 exec_sql 不存在，先創建它
+        if (error.message.includes('function exec_sql() does not exist')) {
+          const { error: createFnError } = await this.client.rpc('create_exec_sql_function', {});
+          if (!createFnError) {
+            // 重試創建表格
+            const { error: retryError } = await this.client.rpc('exec_sql', { sql: createTableSQL });
+            if (retryError) {
+              console.error('重試創建表格失敗:', retryError);
+            }
+          }
         }
       }
     } catch (error) {
