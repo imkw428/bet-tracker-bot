@@ -11,10 +11,10 @@ export class ProviderService {
   }
 
   public static getInstance(): ProviderService {
-    if (!this.instance) {
-      this.instance = new ProviderService();
+    if (!ProviderService.instance) {
+      ProviderService.instance = new ProviderService();
     }
-    return this.instance;
+    return ProviderService.instance;
   }
 
   async getProvider(): Promise<ethers.JsonRpcProvider> {
@@ -24,6 +24,7 @@ export class ProviderService {
   async switchProvider(): Promise<ethers.JsonRpcProvider> {
     this.currentRpcIndex = (this.currentRpcIndex + 1) % RPC_ENDPOINTS.length;
     const newRpcUrl = RPC_ENDPOINTS[this.currentRpcIndex];
+    console.log('Switching to RPC:', newRpcUrl);
     this.provider = new ethers.JsonRpcProvider(newRpcUrl);
     return this.provider;
   }
