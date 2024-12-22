@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { BLOCKS_PER_QUERY, PREDICTION_ADDRESS } from './constants';
+import { BLOCKS_PER_QUERY, PREDICTION_ADDRESS, REQUEST_DELAY } from './constants';
 import { WalletHistory } from './types';
 
 export class LogService {
@@ -10,7 +10,7 @@ export class LogService {
 
   private async getBlockRanges(fromBlock: number, toBlock: number): Promise<Array<[number, number]>> {
     const ranges: Array<[number, number]> = [];
-    // 減少每批次的區塊數量
+    // Reduce batch size further
     const batchSize = Math.floor(BLOCKS_PER_QUERY / 2);
     for (let start = fromBlock; start <= toBlock; start += batchSize) {
       const end = Math.min(start + batchSize - 1, toBlock);
@@ -21,8 +21,8 @@ export class LogService {
 
   async queryLogsInBatches(address: string): Promise<WalletHistory> {
     const latestBlock = await this.provider.getBlockNumber();
-    // 減少查詢的區塊範圍
-    const fromBlock = latestBlock - 5000;
+    // Reduce historical block range
+    const fromBlock = latestBlock - 2000;
     const ranges = await this.getBlockRanges(fromBlock, latestBlock);
 
     const filter = {
@@ -43,6 +43,9 @@ export class LogService {
 
     for (const [start, end] of ranges) {
       try {
+        // Add delay before each request
+        await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
+        
         const logs = await this.provider.getLogs({
           ...filter,
           fromBlock: start,
@@ -72,13 +75,10 @@ export class LogService {
               break;
           }
         }
-
-        // 增加請求之間的延遲
-        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
         console.error(`Error fetching logs for range ${start}-${end}:`, error);
-        // 發生錯誤時增加更長的延遲
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Longer delay on error
+        await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY * 2));
         throw error;
       }
     }
