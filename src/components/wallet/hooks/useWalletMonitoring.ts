@@ -14,18 +14,14 @@ export const useWalletMonitoring = (
   const { toast } = useToast();
   const [currentEpoch, setCurrentEpoch] = useState<number | null>(null);
   const [roundResults, setRoundResults] = useState<Record<number, 'bull' | 'bear'>>({});
-  const predictionServiceRef = useRef<PredictionService>();
+  const predictionServiceRef = useRef<PredictionService | null>(null);
   const lastUpdateRef = useRef<number>(0);
+  const updateIntervalRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
-    if (!predictionServiceRef.current) {
-      predictionServiceRef.current = new PredictionService();
-    }
-
-    const predictionService = predictionServiceRef.current;
+    predictionServiceRef.current = new PredictionService();
 
     const updateWalletData = async () => {
-      // 檢查是否需要更新（每5分鐘更新一次）
       const now = Date.now();
       if (now - lastUpdateRef.current < 5 * 60 * 1000) {
         return;
@@ -34,9 +30,11 @@ export const useWalletMonitoring = (
       try {
         const latestWallets = await supabaseService.getWallets();
         
+        if (!predictionServiceRef.current) return;
+        
         const updatedWallets = await Promise.all(
           latestWallets.map(async (wallet) => {
-            const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
+            const history = await predictionServiceRef.current!.getWalletHistory(wallet.address, 0, 0);
             
             return {
               address: wallet.address,
@@ -66,14 +64,15 @@ export const useWalletMonitoring = (
     };
 
     const fetchData = async () => {
+      if (!predictionServiceRef.current) return;
+      
       try {
-        const epoch = await predictionService.getCurrentEpoch();
+        const epoch = await predictionServiceRef.current.getCurrentEpoch();
         setCurrentEpoch(Number(epoch));
 
-        // 獲取最近5回合的結果
         for (let i = 0; i < 5; i++) {
           const roundEpoch = Number(epoch) - i;
-          const roundInfo = await predictionService.getRoundInfo(roundEpoch);
+          const roundInfo = await predictionServiceRef.current.getRoundInfo(roundEpoch);
           
           if (roundInfo && roundInfo.closePrice && roundInfo.lockPrice) {
             const result = roundInfo.closePrice > roundInfo.lockPrice ? 'bull' : 'bear';
@@ -81,7 +80,6 @@ export const useWalletMonitoring = (
           }
         }
 
-        // 在每一局開始時更新錢包資料
         await updateWalletData();
       } catch (error) {
         console.error('更新資料時發生錯誤:', error);
@@ -89,34 +87,31 @@ export const useWalletMonitoring = (
     };
 
     const checkAndScheduleNextUpdate = async () => {
-      if (!predictionService) return;
+      if (!predictionServiceRef.current) return;
       
       try {
-        // 獲取距離下一回合的時間（毫秒）
-        const timeUntilNextRound = await predictionService.getTimeUntilNextRound();
+        const timeUntilNextRound = await predictionServiceRef.current.getTimeUntilNextRound();
         console.log('距離下一回合還有（毫秒）:', timeUntilNextRound);
         
-        // 設定在下一回合開始時更新資料
-        setTimeout(async () => {
+        updateIntervalRef.current = setTimeout(async () => {
           console.log('開始更新新回合資料');
           await fetchData();
-          // 遞迴調用以設定下一次更新
           checkAndScheduleNextUpdate();
         }, timeUntilNextRound);
 
       } catch (error) {
         console.error('檢查下一回合時間時發生錯誤:', error);
-        // 如果發生錯誤，2分鐘後重試
-        setTimeout(checkAndScheduleNextUpdate, 120000);
+        updateIntervalRef.current = setTimeout(checkAndScheduleNextUpdate, 120000);
       }
     };
 
-    // 立即執行一次
     fetchData();
     checkAndScheduleNextUpdate();
 
     const cleanupFns = wallets.map(wallet => {
-      return predictionService.onNewBet(wallet.address, (bet) => {
+      if (!predictionServiceRef.current) return undefined;
+      
+      return predictionServiceRef.current.onNewBet(wallet.address, (bet) => {
         if (isSoundEnabled) {
           notificationSound.play().catch(console.error);
         }
@@ -141,9 +136,13 @@ export const useWalletMonitoring = (
     });
 
     return () => {
+      if (updateIntervalRef.current) {
+        clearTimeout(updateIntervalRef.current);
+      }
       cleanupFns.forEach(cleanup => cleanup && cleanup());
+      predictionServiceRef.current = null;
     };
-  }, [wallets, toast, isSoundEnabled, notificationSound]);
+  }, [wallets, toast, isSoundEnabled, notificationSound, setWallets]);
 
   return { currentEpoch, predictionServiceRef, roundResults };
 };
