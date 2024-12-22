@@ -4,8 +4,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PredictionService } from '@/services/prediction';
-import { X } from 'lucide-react';
+import { X, Volume2 } from 'lucide-react';
 import { WalletCard } from './WalletCard';
+import { Textarea } from "@/components/ui/textarea";
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 interface Bet {
   type: 'bull' | 'bear';
@@ -23,6 +30,7 @@ interface WalletData {
   address: string;
   history: WalletHistory | null;
   recentBets: Bet[];
+  note: string;
 }
 
 export const WalletMonitor = () => {
@@ -31,20 +39,40 @@ export const WalletMonitor = () => {
   const [currentEpoch, setCurrentEpoch] = useState<number | null>(null);
   const [monitoring, setMonitoring] = useState(false);
   const [wallets, setWallets] = useState<WalletData[]>([]);
-  
+  const [notificationSound] = useState(new Audio('/notification.mp3'));
+  const [isSoundEnabled, setSoundEnabled] = useState(true);
+
+  useEffect(() => {
+    // 從 Supabase 加載保存的錢包數據
+    const loadWallets = async () => {
+      const { data, error } = await supabase
+        .from('wallets')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (!error && data) {
+        setWallets(data.map(w => ({
+          address: w.address,
+          note: w.note || '',
+          history: null,
+          recentBets: []
+        })));
+      }
+    };
+
+    loadWallets();
+  }, []);
+
   useEffect(() => {
     const predictionService = new PredictionService();
     let interval: NodeJS.Timeout;
 
     if (monitoring && wallets.length > 0) {
-      // 每3秒更新一次
       const updateData = async () => {
         try {
-          // 更新當前回合
           const epoch = await predictionService.getCurrentEpoch();
           setCurrentEpoch(Number(epoch));
 
-          // 更新每個錢包的歷史記錄
           for (const wallet of wallets) {
             const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
             setWallets(prevWallets =>
@@ -62,17 +90,20 @@ export const WalletMonitor = () => {
       };
 
       updateData();
-      interval = setInterval(updateData, 3000); // 每3秒更新一次
+      interval = setInterval(updateData, 3000);
 
-      // 為每個錢包設置下注監聽
       wallets.forEach(wallet => {
         predictionService.onNewBet(wallet.address, (bet) => {
+          if (isSoundEnabled) {
+            notificationSound.play().catch(console.error);
+          }
+
           setWallets(prevWallets => 
             prevWallets.map(w => {
               if (w.address === wallet.address) {
                 return {
                   ...w,
-                  recentBets: [bet, ...w.recentBets].slice(0, 10)
+                  recentBets: [bet]  // 只保留最新的一筆下注
                 };
               }
               return w;
@@ -90,9 +121,9 @@ export const WalletMonitor = () => {
     return () => {
       clearInterval(interval);
     };
-  }, [monitoring, wallets, toast]);
+  }, [monitoring, wallets, toast, isSoundEnabled, notificationSound]);
 
-  const addWallet = () => {
+  const addWallet = async () => {
     if (!newAddress) {
       toast({
         title: "錯誤",
@@ -111,16 +142,54 @@ export const WalletMonitor = () => {
       return;
     }
 
-    setWallets(prev => [...prev, {
+    const newWallet = {
       address: newAddress,
       history: null,
-      recentBets: []
-    }]);
+      recentBets: [],
+      note: ''
+    };
+
+    // 保存到 Supabase
+    const { error } = await supabase
+      .from('wallets')
+      .insert([{ address: newAddress, note: '' }]);
+
+    if (error) {
+      toast({
+        title: "錯誤",
+        description: "保存錢包時出錯",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setWallets(prev => [...prev, newWallet]);
     setNewAddress('');
   };
 
-  const removeWallet = (address: string) => {
+  const removeWallet = async (address: string) => {
+    // 從 Supabase 刪除
+    await supabase
+      .from('wallets')
+      .delete()
+      .eq('address', address);
+
     setWallets(prev => prev.filter(w => w.address !== address));
+  };
+
+  const updateNote = async (address: string, note: string) => {
+    // 更新 Supabase
+    await supabase
+      .from('wallets')
+      .update({ note })
+      .eq('address', address);
+
+    setWallets(prev => prev.map(w => {
+      if (w.address === address) {
+        return { ...w, note };
+      }
+      return w;
+    }));
   };
 
   const startMonitoring = () => {
@@ -138,7 +207,18 @@ export const WalletMonitor = () => {
   return (
     <div className="container mx-auto p-4 font-mono">
       <div className="mb-8 space-y-4">
-        <h1 className="text-2xl font-bold">PancakeSwap 預測監控</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold">PancakeSwap 預測監控</h1>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSoundEnabled(!isSoundEnabled)}
+            className="ml-2"
+          >
+            <Volume2 className={isSoundEnabled ? 'text-green-500' : 'text-gray-400'} />
+          </Button>
+        </div>
+        
         <div className="flex gap-4">
           <Input
             placeholder="輸入錢包地址"
@@ -154,42 +234,50 @@ export const WalletMonitor = () => {
           </Button>
         </div>
 
-        {/* 錢包列表 */}
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {wallets.map(wallet => (
-            <div key={wallet.address} className="flex items-center gap-2 bg-muted/50 p-2 rounded">
-              <span>{wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="ml-auto"
-                onClick={() => removeWallet(wallet.address)}
+            <div key={wallet.address} className="space-y-2">
+              <div className="flex items-center gap-2 bg-muted/50 p-2 rounded">
+                <span className="text-sm">{wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="ml-auto"
+                  onClick={() => removeWallet(wallet.address)}
+                  disabled={monitoring}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <Textarea
+                placeholder="添加備註..."
+                value={wallet.note}
+                onChange={(e) => updateNote(wallet.address, e.target.value)}
+                className="text-sm h-20"
                 disabled={monitoring}
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              />
             </div>
           ))}
         </div>
       </div>
 
       {monitoring && (
-        <div className="space-y-6">
-          <Card className="p-4">
-            <h2 className="text-xl font-bold mb-4">當前狀態</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Card className="p-4 col-span-full">
+            <h2 className="text-lg font-bold mb-4">當前狀態</h2>
             <div className="space-y-2">
-              <p>當前回合: <span className="animate-blink">{currentEpoch}</span></p>
-              <p>監控錢包數量: {wallets.length}</p>
+              <p className="text-sm">當前回合: <span className="animate-blink">{currentEpoch}</span></p>
+              <p className="text-sm">監控錢包數量: {wallets.length}</p>
             </div>
           </Card>
 
-          {/* 使用新的 WalletCard 組件 */}
           {wallets.map(wallet => (
             <WalletCard
               key={wallet.address}
               address={wallet.address}
               history={wallet.history}
               recentBets={wallet.recentBets}
+              note={wallet.note}
             />
           ))}
         </div>
