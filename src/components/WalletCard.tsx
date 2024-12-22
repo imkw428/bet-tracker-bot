@@ -14,7 +14,7 @@ interface Bet {
 interface WalletHistory {
   bulls: { epoch: number; amount: string; }[];
   bears: { epoch: number; amount: string; }[];
-  claims: { epoch: number; amount: string; }[];
+  claims: { epoch: number; timestamp?: number; amount: string; }[];
 }
 
 interface WalletCardProps {
@@ -43,8 +43,12 @@ export const WalletCard = ({
     history.claims.length > 0
   );
 
-  // 計算最近一小時的領獎次數
-  const recentClaimsCount = history?.claims.length || 0;
+  // 計算最近一小時內的領獎次數
+  const recentClaimsCount = history?.claims.filter(claim => {
+    if (!claim.timestamp) return false;
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+    return claim.timestamp >= oneHourAgo;
+  }).length || 0;
 
   const getRecentRounds = () => {
     if (!history) return [];
