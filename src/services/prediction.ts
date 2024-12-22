@@ -11,18 +11,16 @@ const PREDICTION_ABI = [
 const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
 const BLOCKS_PER_QUERY = 2000;
 
-// Updated RPC endpoints with more reliable nodes
+// Updated RPC endpoints with more reliable nodes and API keys
 const RPC_ENDPOINTS = [
-  "https://bsc-rpc.gateway.pokt.network",
-  "https://bsc-mainnet.public.blastapi.io",
-  "https://bsc.publicnode.com",
-  "https://binance.nodereal.io",
-  "https://bsc-mainnet.nodereal.io/v1/64a9df0874fb4a93b9d0a3849de012d3",
-  "https://rpc.ankr.com/bsc",
-  "https://bsc.rpc.blxrbdn.com",
+  "https://bsc.getblock.io/mainnet/?api_key=your-api-key",
   "https://bsc.blockpi.network/v1/rpc/public",
   "https://1rpc.io/bnb",
-  "https://bsc.meowrpc.com"
+  "https://bsc.meowrpc.com",
+  "https://bsc.publicnode.com",
+  "https://binance.llamarpc.com",
+  "https://bsc-mainnet.public.blastapi.io",
+  "https://bsc-rpc.gateway.pokt.network"
 ];
 
 export class PredictionService {
@@ -31,7 +29,7 @@ export class PredictionService {
   private interface: ethers.Interface;
   private currentRpcIndex: number = 0;
   private retryCount: number = 0;
-  private maxRetries: number = 3;
+  private maxRetries: number = 5; // Increased max retries
 
   constructor() {
     this.provider = this.createProvider();
@@ -40,20 +38,26 @@ export class PredictionService {
   }
 
   private createProvider(): ethers.JsonRpcProvider {
-    const provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex]);
-    provider.pollingInterval = 1000; // 降低輪詢頻率以減少請求數
+    const provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex], {
+      staticNetwork: ethers.Network.from(56), // BSC mainnet
+      batchMaxCount: 1, // Reduce batch size to avoid rate limits
+      polling: false, // Disable polling to reduce requests
+      staticNetwork: true // Use static network to avoid network detection
+    });
+    provider.pollingInterval = 3000; // Increased polling interval
     return provider;
   }
 
   private async switchToNextRpc(): Promise<void> {
-    console.log(`切換到下一個 RPC 節點，當前節點索引: ${this.currentRpcIndex}`);
+    console.log(`Switching to next RPC node, current index: ${this.currentRpcIndex}`);
     this.currentRpcIndex = (this.currentRpcIndex + 1) % RPC_ENDPOINTS.length;
     this.provider = this.createProvider();
     this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
     
-    // 重置重試計數器
     if (this.currentRpcIndex === 0) {
       this.retryCount++;
+      // Add exponential backoff delay
+      await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, this.retryCount), 30000)));
     }
   }
 
@@ -62,18 +66,16 @@ export class PredictionService {
       try {
         return await operation();
       } catch (error) {
-        console.error(`操作失敗 (重試 ${this.retryCount + 1}/${this.maxRetries}):`, error);
+        console.error(`Operation failed (retry ${this.retryCount + 1}/${this.maxRetries}):`, error);
         
         if (this.retryCount === this.maxRetries - 1) {
-          throw new Error('所有 RPC 節點都無法連接，請稍後再試');
+          throw new Error('All RPC nodes failed to connect, please try again later');
         }
         
         await this.switchToNextRpc();
-        // 指數退避延遲
-        await new Promise(resolve => setTimeout(resolve, Math.pow(2, this.retryCount) * 1000));
       }
     }
-    throw new Error('超過最大重試次數');
+    throw new Error('Maximum retry attempts exceeded');
   }
 
   async getCurrentEpoch(): Promise<number> {
