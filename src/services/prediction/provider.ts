@@ -5,14 +5,9 @@ export class ProviderService {
   private static instance: ProviderService;
   private provider: ethers.JsonRpcProvider;
   private currentRpcIndex: number = 0;
-  private pollingInterval: number = 5000;
 
-  constructor() {
-    if (ProviderService.instance) {
-      return ProviderService.instance;
-    }
+  private constructor() {
     this.provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[0]);
-    ProviderService.instance = this;
   }
 
   public static getInstance(): ProviderService {
@@ -32,10 +27,6 @@ export class ProviderService {
     this.provider = new ethers.JsonRpcProvider(newRpcUrl);
     return this.provider;
   }
-
-  setPollingInterval(intensive: boolean) {
-    this.pollingInterval = intensive ? 2000 : 5000;
-    // Note: Modern ethers.js doesn't support setPollingInterval directly
-    // We'll use this value in our custom polling logic if needed
-  }
 }
+
+export const providerService = ProviderService.getInstance();
