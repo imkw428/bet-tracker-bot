@@ -4,8 +4,6 @@ import { duneService } from '@/services/dune';
 import { useToast } from "@/components/ui/use-toast";
 import { WalletData } from '../types';
 
-const POLLING_INTERVAL = 5 * 60 * 1000; // 5分鐘
-
 export const useWalletMonitoring = (
   wallets: WalletData[],
   setWallets: React.Dispatch<React.SetStateAction<WalletData[]>>,
@@ -17,9 +15,10 @@ export const useWalletMonitoring = (
   const predictionServiceRef = useRef<PredictionService>();
 
   useEffect(() => {
-    if (!predictionServiceRef.current) return;
+    if (!predictionServiceRef.current) {
+      predictionServiceRef.current = new PredictionService();
+    }
 
-    let interval: NodeJS.Timeout;
     const predictionService = predictionServiceRef.current;
 
     const fetchData = async () => {
@@ -43,11 +42,30 @@ export const useWalletMonitoring = (
       }
     };
 
+    const checkAndScheduleNextUpdate = async () => {
+      if (!predictionService) return;
+      
+      try {
+        // 獲取距離下一回合的時間（毫秒）
+        const timeUntilNextRound = await predictionService.getTimeUntilNextRound();
+        
+        // 設定在下一回合開始時更新資料
+        setTimeout(async () => {
+          await fetchData();
+          // 遞迴調用以設定下一次更新
+          checkAndScheduleNextUpdate();
+        }, timeUntilNextRound);
+
+      } catch (error) {
+        console.error('檢查下一回合時間時發生錯誤:', error);
+        // 如果發生錯誤，1分鐘後重試
+        setTimeout(checkAndScheduleNextUpdate, 60000);
+      }
+    };
+
     // 立即執行一次
     fetchData();
-
-    // 設定5分鐘定時器
-    interval = setInterval(fetchData, POLLING_INTERVAL);
+    checkAndScheduleNextUpdate();
 
     const cleanupFns = wallets.map(wallet => {
       return predictionService.onNewBet(wallet.address, (bet) => {
@@ -75,7 +93,6 @@ export const useWalletMonitoring = (
     });
 
     return () => {
-      clearInterval(interval);
       cleanupFns.forEach(cleanup => cleanup && cleanup());
     };
   }, [wallets, toast, isSoundEnabled, notificationSound]);
