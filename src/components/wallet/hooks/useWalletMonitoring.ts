@@ -4,6 +4,8 @@ import { duneService } from '@/services/dune';
 import { useToast } from "@/components/ui/use-toast";
 import { WalletData } from '../types';
 
+const POLLING_INTERVAL = 5 * 60 * 1000; // 5分鐘
+
 export const useWalletMonitoring = (
   wallets: WalletData[],
   setWallets: React.Dispatch<React.SetStateAction<WalletData[]>>,
@@ -20,13 +22,8 @@ export const useWalletMonitoring = (
     let interval: NodeJS.Timeout;
     const predictionService = predictionServiceRef.current;
 
-    const checkRoundTiming = async () => {
+    const fetchData = async () => {
       try {
-        const timeUntilNext = await predictionService.getTimeUntilNextRound();
-        const shouldIntensivePolling = timeUntilNext <= 30000 && timeUntilNext > 0;
-        
-        predictionService.setPollingInterval(shouldIntensivePolling);
-        
         const epoch = await predictionService.getCurrentEpoch();
         setCurrentEpoch(Number(epoch));
 
@@ -41,16 +38,16 @@ export const useWalletMonitoring = (
             })
           );
         }
-
-        const nextCheckDelay = shouldIntensivePolling ? 1000 : 3000;
-        interval = setTimeout(checkRoundTiming, nextCheckDelay);
       } catch (error) {
         console.error('更新資料時發生錯誤:', error);
-        interval = setTimeout(checkRoundTiming, 3000);
       }
     };
 
-    checkRoundTiming();
+    // 立即執行一次
+    fetchData();
+
+    // 設定5分鐘定時器
+    interval = setInterval(fetchData, POLLING_INTERVAL);
 
     const cleanupFns = wallets.map(wallet => {
       return predictionService.onNewBet(wallet.address, (bet) => {
@@ -78,7 +75,7 @@ export const useWalletMonitoring = (
     });
 
     return () => {
-      clearTimeout(interval);
+      clearInterval(interval);
       cleanupFns.forEach(cleanup => cleanup && cleanup());
     };
   }, [wallets, toast, isSoundEnabled, notificationSound]);
