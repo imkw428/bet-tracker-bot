@@ -10,25 +10,27 @@ export class ProviderService {
   private readonly intensivePollingInterval = 2000;
   private lastRequestTime: number = 0;
   private failedNodes: Set<string> = new Set();
+  private static instance: ProviderService;
 
-  constructor() {
-    this.provider = this.createProvider();
-  }
-
-  private createProvider(): ethers.JsonRpcProvider {
-    const provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex], {
+  private constructor() {
+    this.provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[0], {
       chainId: 56,
       name: 'bnb',
       ensAddress: null
     });
-    provider.pollingInterval = this.normalPollingInterval;
-    return provider;
+  }
+
+  public static getInstance(): ProviderService {
+    if (!ProviderService.instance) {
+      ProviderService.instance = new ProviderService();
+    }
+    return ProviderService.instance;
   }
 
   private async waitForRateLimit() {
     const now = Date.now();
     const timeSinceLastRequest = now - this.lastRequestTime;
-    const minDelay = REQUEST_DELAY * Math.pow(2, this.retryCount); // Exponential backoff
+    const minDelay = REQUEST_DELAY * Math.pow(2, this.retryCount);
     
     if (timeSinceLastRequest < minDelay) {
       await new Promise(resolve => setTimeout(resolve, minDelay - timeSinceLastRequest));
@@ -37,72 +39,53 @@ export class ProviderService {
     this.lastRequestTime = Date.now();
   }
 
-  private getNextAvailableRpc(): string | null {
+  private getNextAvailableRpc(): string {
     const availableRpcs = RPC_ENDPOINTS.filter(rpc => !this.failedNodes.has(rpc));
     if (availableRpcs.length === 0) {
-      this.failedNodes.clear(); // Reset failed nodes if all are failed
+      this.failedNodes.clear();
       return RPC_ENDPOINTS[0];
     }
-    return availableRpcs[Math.floor(Math.random() * availableRpcs.length)];
+    
+    this.currentRpcIndex = (this.currentRpcIndex + 1) % availableRpcs.length;
+    return availableRpcs[this.currentRpcIndex];
   }
 
-  async switchToNextRpc(): Promise<ethers.JsonRpcProvider> {
+  public async getProvider(): Promise<ethers.JsonRpcProvider> {
     await this.waitForRateLimit();
-    
-    const nextRpc = this.getNextAvailableRpc();
-    if (!nextRpc) {
-      throw new Error('No available RPC nodes');
-    }
 
     try {
-      const newProvider = new ethers.JsonRpcProvider(nextRpc, {
-        chainId: 56,
-        name: 'bnb',
-        ensAddress: null
-      });
-      
-      await newProvider.getNetwork();
-      this.provider = newProvider;
-      this.retryCount = 0;
+      // 嘗試使用現有的 provider
+      await this.provider.getBlockNumber();
       return this.provider;
     } catch (error) {
-      console.error(`Failed to connect to RPC ${nextRpc}:`, error);
-      this.failedNodes.add(nextRpc);
-      
-      this.retryCount++;
       if (this.retryCount >= this.maxRetries) {
-        throw new Error('All RPC nodes failed to connect');
+        this.retryCount = 0;
+        throw new Error('Maximum retry attempts exceeded');
       }
+
+      console.log(`Provider failed, switching to next RPC. Attempt ${this.retryCount + 1}/${this.maxRetries}`);
       
-      return this.switchToNextRpc();
-    }
-  }
-
-  async getProvider(): Promise<ethers.JsonRpcProvider> {
-    await this.waitForRateLimit();
-    
-    try {
-      await this.provider.getNetwork();
-      return this.provider;
-    } catch (error) {
-      console.error('Current provider failed, switching to next RPC');
-      return this.switchToNextRpc();
-    }
-  }
-
-  setPollingInterval(intensive: boolean) {
-    this.provider.pollingInterval = intensive ? 
-      this.intensivePollingInterval : 
-      this.normalPollingInterval;
-  }
-
-  async isProviderHealthy(): Promise<boolean> {
-    try {
-      await this.waitForRateLimit();
-      await this.provider.getNetwork();
-      return true;
-    } catch {
-      return false;
+      const nextRpc = this.getNextAvailableRpc();
+      this.failedNodes.add(this.provider.connection.url);
+      
+      try {
+        const newProvider = new ethers.JsonRpcProvider(nextRpc, {
+          chainId: 56,
+          name: 'bnb',
+          ensAddress: null
+        });
+        
+        await newProvider.getBlockNumber(); // 測試新的連接
+        this.provider = newProvider;
+        this.retryCount = 0;
+        return this.provider;
+      } catch (error) {
+        this.retryCount++;
+        this.failedNodes.add(nextRpc);
+        return this.getProvider(); // 遞迴重試
+      }
     }
   }
 }
+
+export const providerService = ProviderService.getInstance();
