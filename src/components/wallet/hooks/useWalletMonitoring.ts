@@ -25,21 +25,21 @@ export const useWalletMonitoring = (
 
     const updateWalletData = async () => {
       try {
-        // 從資料庫獲取最新的錢包列表
         const latestWallets = await supabaseService.getWallets();
         
-        // 更新每個錢包的歷史記錄
         const updatedWallets = await Promise.all(
           latestWallets.map(async (wallet) => {
             const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
-            // 更新錢包的在線時間
             await supabaseService.updateWalletTime(wallet.address);
             
             return {
-              ...wallet,
+              address: wallet.address,
+              note: wallet.note || '',
               history,
               recentBets: [],
-            };
+              created_at: wallet.created_at || new Date().toISOString(),
+              total_time_on_list: wallet.total_time_on_list || 0,
+            } as WalletData;
           })
         );
 

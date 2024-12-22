@@ -44,25 +44,24 @@ export const WalletCard = ({
     history.claims.length > 0
   );
 
-  // 計算最近一小時內的領獎次數
   const recentClaimsCount = history?.claims.filter(claim => {
     if (!claim.timestamp) return false;
     const oneHourAgo = Date.now() - 60 * 60 * 1000;
     return claim.timestamp >= oneHourAgo;
   }).length || 0;
 
-  // 檢查是否為大額操作者 (累積超過12次未領獎)
-  const unclaimedWins = history?.bulls.map(bet => ({...bet, type: 'bull' as const}))
-    .concat(history.bears.map(bet => ({...bet, type: 'bear' as const})))
+  // 修正型別錯誤，使用型別斷言
+  const unclaimedWins = history ? (
+    [...history.bulls.map(bet => ({ ...bet, type: 'bull' as const })),
+     ...history.bears.map(bet => ({ ...bet, type: 'bear' as const }))]
     .filter(bet => {
       const result = roundResults[bet.epoch];
       if (!result) return false;
-      
-      // 檢查是否贏了但還沒領獎
       const won = (bet.type === result);
       const claimed = winningEpochs.includes(bet.epoch);
       return won && !claimed;
-    }).length || 0;
+    }).length
+  ) : 0;
 
   const isLargeOperator = unclaimedWins >= 12;
 
