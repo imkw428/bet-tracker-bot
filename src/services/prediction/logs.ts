@@ -1,16 +1,16 @@
 import { ethers } from 'ethers';
-import { BLOCKS_PER_QUERY, PREDICTION_ADDRESS, REQUEST_DELAY } from './constants';
+import { BLOCKS_PER_QUERY, PREDICTION_ADDRESS } from './constants';
 import { WalletHistory } from './types';
+import { ProviderService } from './provider';
 
 export class LogService {
   constructor(
-    private provider: ethers.JsonRpcProvider,
+    private providerService: ProviderService,
     private contractInterface: ethers.Interface
   ) {}
 
   private async getBlockRanges(fromBlock: number, toBlock: number): Promise<Array<[number, number]>> {
     const ranges: Array<[number, number]> = [];
-    // Reduce batch size further
     const batchSize = Math.floor(BLOCKS_PER_QUERY / 2);
     for (let start = fromBlock; start <= toBlock; start += batchSize) {
       const end = Math.min(start + batchSize - 1, toBlock);
@@ -20,9 +20,9 @@ export class LogService {
   }
 
   async queryLogsInBatches(address: string): Promise<WalletHistory> {
-    const latestBlock = await this.provider.getBlockNumber();
-    // Reduce historical block range
-    const fromBlock = latestBlock - 2000;
+    const provider = await this.providerService.getProvider();
+    const latestBlock = await provider.getBlockNumber();
+    const fromBlock = latestBlock - 1000; // Reduced historical block range
     const ranges = await this.getBlockRanges(fromBlock, latestBlock);
 
     const filter = {
@@ -43,10 +43,7 @@ export class LogService {
 
     for (const [start, end] of ranges) {
       try {
-        // Add delay before each request
-        await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
-        
-        const logs = await this.provider.getLogs({
+        const logs = await provider.getLogs({
           ...filter,
           fromBlock: start,
           toBlock: end,
@@ -77,8 +74,6 @@ export class LogService {
         }
       } catch (error) {
         console.error(`Error fetching logs for range ${start}-${end}:`, error);
-        // Longer delay on error
-        await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY * 2));
         throw error;
       }
     }

@@ -8,9 +8,9 @@ export const PREDICTION_ABI = [
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
 // Reduce block range to avoid rate limits
-export const BLOCKS_PER_QUERY = 500;
-// Add delay between requests
-export const REQUEST_DELAY = 1000;
+export const BLOCKS_PER_QUERY = 200; // Reduced from 500
+// Increase delay between requests
+export const REQUEST_DELAY = 2000; // Increased from 1000
 
 export const RPC_ENDPOINTS = [
   "https://bsc-dataseed.binance.org",
@@ -19,4 +19,6 @@ export const RPC_ENDPOINTS = [
   "https://bsc-dataseed2.defibit.io",
   "https://binance.llamarpc.com",
   "https://bsc.publicnode.com",
+  "https://1rpc.io/bnb",
+  "https://bsc-rpc.gateway.pokt.network"
 ];

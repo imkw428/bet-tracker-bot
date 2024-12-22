@@ -13,12 +13,17 @@ export class PredictionService {
   constructor() {
     this.provider = new ProviderService();
     this.interface = new ethers.Interface(PREDICTION_ABI);
+    this.initializeContract();
+    this.logService = new LogService(this.provider, this.interface);
+  }
+
+  private async initializeContract() {
+    const provider = await this.provider.getProvider();
     this.contract = new ethers.Contract(
       PREDICTION_ADDRESS,
       PREDICTION_ABI,
-      this.provider.getProvider()
+      provider
     );
-    this.logService = new LogService(this.provider.getProvider(), this.interface);
   }
 
   private async executeWithRetry<T>(operation: () => Promise<T>): Promise<T> {

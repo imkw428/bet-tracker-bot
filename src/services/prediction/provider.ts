@@ -8,6 +8,7 @@ export class ProviderService {
   private readonly maxRetries: number = 3;
   private readonly normalPollingInterval = 3000;
   private readonly intensivePollingInterval = 1000;
+  private lastRequestTime: number = 0;
 
   constructor() {
     this.provider = this.createProvider();
@@ -23,14 +24,26 @@ export class ProviderService {
     return provider;
   }
 
+  private async waitForRateLimit() {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    const minDelay = REQUEST_DELAY * (this.retryCount + 1);
+    
+    if (timeSinceLastRequest < minDelay) {
+      await new Promise(resolve => setTimeout(resolve, minDelay - timeSinceLastRequest));
+    }
+    
+    this.lastRequestTime = Date.now();
+  }
+
   async switchToNextRpc(): Promise<ethers.JsonRpcProvider> {
+    await this.waitForRateLimit();
+    
     console.log(`Switching to next RPC endpoint, current index: ${this.currentRpcIndex}`);
     this.currentRpcIndex = (this.currentRpcIndex + 1) % RPC_ENDPOINTS.length;
     
     try {
       this.provider = this.createProvider();
-      // Add delay before testing connection
-      await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
       await this.provider.getNetwork();
       this.retryCount = 0; // Reset retry count on successful connection
       return this.provider;
@@ -52,7 +65,8 @@ export class ProviderService {
     }
   }
 
-  getProvider(): ethers.JsonRpcProvider {
+  async getProvider(): Promise<ethers.JsonRpcProvider> {
+    await this.waitForRateLimit();
     return this.provider;
   }
 
@@ -60,9 +74,9 @@ export class ProviderService {
     this.provider.pollingInterval = intensive ? this.intensivePollingInterval : this.normalPollingInterval;
   }
 
-  // Add method to check provider health
   async isProviderHealthy(): Promise<boolean> {
     try {
+      await this.waitForRateLimit();
       await this.provider.getNetwork();
       return true;
     } catch {
