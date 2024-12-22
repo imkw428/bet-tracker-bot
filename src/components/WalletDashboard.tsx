@@ -29,10 +29,6 @@ export const WalletDashboard = ({ currentEpoch, wallets, monitoring }: WalletDas
           history={wallet.history}
           recentBets={wallet.recentBets}
           note={wallet.note}
-          firstSeen={formatDistanceToNow(new Date(wallet.created_at), { 
-            addSuffix: true,
-            locale: zhTW 
-          })}
           currentEpoch={currentEpoch || 0}
         />
       ))}
