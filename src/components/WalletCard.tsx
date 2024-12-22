@@ -47,7 +47,6 @@ export const WalletCard = ({
     history.claims.length > 0
   );
 
-  // 格式化累計時間
   const formatTotalTime = (minutes: number) => {
     if (minutes < 60) {
       return `${minutes} 分鐘`;
@@ -62,24 +61,29 @@ export const WalletCard = ({
     }
   };
 
-  // 獲取最近三個回合的下注記錄
+  // 獲取最近五個回合的記錄
   const getRecentRounds = () => {
     if (!history) return [];
     
-    const allRounds = [
+    const allBets = [
       ...history.bulls.map(bet => ({ ...bet, type: 'bull' as const })),
       ...history.bears.map(bet => ({ ...bet, type: 'bear' as const }))
-    ].sort((a, b) => b.epoch - a.epoch);
+    ];
 
-    const uniqueRounds = Array.from(new Set(allRounds.map(r => r.epoch)))
-      .slice(0, 3)
-      .sort((a, b) => b - a);
+    // 找出最大的 epoch
+    const maxEpoch = Math.max(
+      ...allBets.map(bet => bet.epoch),
+      ...winningEpochs
+    );
 
-    return uniqueRounds.map(epoch => {
-      const bet = allRounds.find(r => r.epoch === epoch);
-      const won = winningEpochs.includes(epoch);
+    // 生成最近 5 個回合的數據
+    return Array.from({ length: 5 }, (_, index) => {
+      const currentEpoch = maxEpoch - index;
+      const bet = allBets.find(b => b.epoch === currentEpoch);
+      const won = winningEpochs.includes(currentEpoch);
+      
       return {
-        epoch,
+        epoch: currentEpoch,
         type: bet?.type || null,
         amount: bet?.amount || null,
         won
