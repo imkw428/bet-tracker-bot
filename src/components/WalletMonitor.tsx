@@ -7,17 +7,7 @@ import { PredictionService } from '@/services/prediction';
 import { X, Volume2 } from 'lucide-react';
 import { WalletCard } from './WalletCard';
 import { Textarea } from "@/components/ui/textarea";
-import { createClient } from '@supabase/supabase-js';
-
-// Supabase client initialization with proper error handling
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { supabaseService } from '@/services/supabase';
 
 interface Bet {
   type: 'bull' | 'bear';
@@ -48,21 +38,14 @@ export const WalletMonitor = () => {
   const [isSoundEnabled, setSoundEnabled] = useState(true);
 
   useEffect(() => {
-    // 從 Supabase 加載保存的錢包數據
     const loadWallets = async () => {
-      const { data, error } = await supabase
-        .from('wallets')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (!error && data) {
-        setWallets(data.map(w => ({
-          address: w.address,
-          note: w.note || '',
-          history: null,
-          recentBets: []
-        })));
-      }
+      const savedWallets = await supabaseService.getWallets();
+      setWallets(savedWallets.map(w => ({
+        address: w.address,
+        note: w.note || '',
+        history: null,
+        recentBets: []
+      })));
     };
 
     loadWallets();
@@ -147,54 +130,35 @@ export const WalletMonitor = () => {
       return;
     }
 
-    const newWallet = {
-      address: newAddress,
-      history: null,
-      recentBets: [],
-      note: ''
-    };
-
-    // 保存到 Supabase
-    const { error } = await supabase
-      .from('wallets')
-      .insert([{ address: newAddress, note: '' }]);
-
-    if (error) {
-      toast({
-        title: "錯誤",
-        description: "保存錢包時出錯",
-        variant: "destructive",
-      });
-      return;
+    const newWallet = await supabaseService.addWallet(newAddress);
+    if (newWallet) {
+      setWallets(prev => [...prev, {
+        address: newWallet.address,
+        note: newWallet.note || '',
+        history: null,
+        recentBets: []
+      }]);
+      setNewAddress('');
     }
-
-    setWallets(prev => [...prev, newWallet]);
-    setNewAddress('');
   };
 
   const removeWallet = async (address: string) => {
-    // 從 Supabase 刪除
-    await supabase
-      .from('wallets')
-      .delete()
-      .eq('address', address);
-
-    setWallets(prev => prev.filter(w => w.address !== address));
+    const success = await supabaseService.deleteWallet(address);
+    if (success) {
+      setWallets(prev => prev.filter(w => w.address !== address));
+    }
   };
 
   const updateNote = async (address: string, note: string) => {
-    // 更新 Supabase
-    await supabase
-      .from('wallets')
-      .update({ note })
-      .eq('address', address);
-
-    setWallets(prev => prev.map(w => {
-      if (w.address === address) {
-        return { ...w, note };
-      }
-      return w;
-    }));
+    const success = await supabaseService.updateWalletNote(address, note);
+    if (success) {
+      setWallets(prev => prev.map(w => {
+        if (w.address === address) {
+          return { ...w, note };
+        }
+        return w;
+      }));
+    }
   };
 
   const startMonitoring = () => {
