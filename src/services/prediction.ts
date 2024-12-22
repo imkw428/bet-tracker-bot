@@ -40,9 +40,9 @@ export class PredictionService {
 
   private createProvider(): ethers.JsonRpcProvider {
     const provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex], {
-      chainId: 56, // BSC mainnet
-      batchMaxCount: 1, // Reduce batch size to avoid rate limits
-      polling: false // Disable polling to reduce requests
+      chainId: 56,
+      name: 'bnb',
+      ensAddress: null
     });
     provider.pollingInterval = this.normalPollingInterval;
     return provider;
