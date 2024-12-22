@@ -3,7 +3,9 @@ import { WalletDashboard } from './WalletDashboard';
 import { useWalletData } from './wallet/hooks/useWalletData';
 import { useWalletMonitoring } from './wallet/hooks/useWalletMonitoring';
 import { MonitorHeader } from './wallet/components/MonitorHeader';
+import { WalletInput } from './wallet/components/WalletInput';
 import { useToast } from "@/components/ui/use-toast";
+import { supabaseService } from '@/services/supabase';
 
 export const WalletMonitor = () => {
   const [monitoring] = useState(true);
@@ -14,6 +16,7 @@ export const WalletMonitor = () => {
   const {
     wallets,
     setWallets,
+    handleWalletAdd
   } = useWalletData();
 
   const { currentEpoch, predictionServiceRef, roundResults } = useWalletMonitoring(
@@ -23,25 +26,27 @@ export const WalletMonitor = () => {
     notificationSound
   );
 
-  // 添加日誌來幫助調試
-  console.log('Current wallets:', wallets);
-  console.log('Monitoring status:', monitoring);
-  console.log('Current epoch:', currentEpoch);
-
-  if (wallets.length === 0) {
-    return (
-      <div className="container mx-auto p-4 font-mono">
-        <MonitorHeader />
-        <div className="text-center py-8">
-          <p>正在載入錢包資料...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleAddWallet = async (address: string) => {
+    try {
+      const wallet = await supabaseService.addWallet(address);
+      if (wallet) {
+        await handleWalletAdd(wallet);
+      }
+    } catch (error) {
+      console.error('添加錢包時發生錯誤:', error);
+      toast({
+        title: "錯誤",
+        description: "添加錢包時發生錯誤",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="container mx-auto p-4 font-mono">
       <MonitorHeader />
+      
+      <WalletInput onAddWallet={handleAddWallet} />
 
       <WalletDashboard
         currentEpoch={currentEpoch}
