@@ -43,6 +43,10 @@ export const WalletMonitor = () => {
     }
   };
 
+  const handleDeleteWallet = (address: string) => {
+    setWallets(prev => prev.filter(w => w.address !== address));
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-4 font-mono">
@@ -62,6 +66,7 @@ export const WalletMonitor = () => {
         wallets={wallets}
         monitoring={monitoring}
         roundResults={roundResults}
+        onDeleteWallet={handleDeleteWallet}
       />
     </div>
   );

@@ -6,9 +6,16 @@ interface WalletDashboardProps {
   wallets: any[];
   monitoring: boolean;
   roundResults: Record<number, 'bull' | 'bear'>;
+  onDeleteWallet: (address: string) => void;
 }
 
-export const WalletDashboard = ({ currentEpoch, wallets, monitoring, roundResults }: WalletDashboardProps) => {
+export const WalletDashboard = ({ 
+  currentEpoch, 
+  wallets, 
+  monitoring, 
+  roundResults,
+  onDeleteWallet 
+}: WalletDashboardProps) => {
   if (!monitoring) return null;
 
   return (
@@ -31,6 +38,7 @@ export const WalletDashboard = ({ currentEpoch, wallets, monitoring, roundResult
           totalTimeOnList={wallet.total_time_on_list || 0}
           currentEpoch={currentEpoch || 0}
           roundResults={roundResults}
+          onDelete={onDeleteWallet}
         />
       ))}
     </div>

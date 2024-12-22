@@ -4,7 +4,10 @@ import { WalletHeader } from "./wallet/components/WalletHeader";
 import { WalletAnalyticsDisplay } from "./wallet/components/WalletAnalytics";
 import { BettingHistory } from "./wallet/components/BettingHistory";
 import { Badge } from "@/components/ui/badge";
-import { Database } from "lucide-react";
+import { Database, Trash2 } from "lucide-react";
+import { Button } from "./ui/button";
+import { useToast } from "./ui/use-toast";
+import { supabaseService } from "@/services/supabase";
 
 interface Bet {
   type: 'bull' | 'bear';
@@ -27,6 +30,7 @@ interface WalletCardProps {
   currentEpoch: number;
   totalTimeOnList?: number;
   roundResults: Record<number, 'bull' | 'bear'>;
+  onDelete?: (address: string) => void;
 }
 
 export const WalletCard = ({ 
@@ -35,8 +39,10 @@ export const WalletCard = ({
   analytics,
   currentEpoch,
   totalTimeOnList,
-  roundResults
+  roundResults,
+  onDelete
 }: WalletCardProps) => {
+  const { toast } = useToast();
   const winningEpochs = history?.claims.map(claim => claim.epoch) || [];
   const hasHistory = history && (
     history.bulls.length > 0 || 
@@ -50,7 +56,6 @@ export const WalletCard = ({
     return claim.timestamp >= oneHourAgo;
   }).length || 0;
 
-  // 修正型別錯誤，使用型別斷言
   const unclaimedWins = history ? (
     [...history.bulls.map(bet => ({ ...bet, type: 'bull' as const })),
      ...history.bears.map(bet => ({ ...bet, type: 'bear' as const }))]
@@ -88,6 +93,25 @@ export const WalletCard = ({
     });
   };
 
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    
+    const success = await supabaseService.deleteWallet(address);
+    if (success) {
+      onDelete(address);
+      toast({
+        title: "成功",
+        description: "已移除錢包地址",
+      });
+    } else {
+      toast({
+        title: "錯誤",
+        description: "移除錢包地址失敗",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Card className={`p-4 shadow-lg hover:shadow-xl transition-all duration-300 border ${
       isLargeOperator 
@@ -109,11 +133,21 @@ export const WalletCard = ({
               </div>
             )}
           </div>
-          {recentClaimsCount > 0 && (
-            <Badge variant={recentClaimsCount >= 6 ? "destructive" : "secondary"}>
-              {recentClaimsCount} 次領獎
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {recentClaimsCount > 0 && (
+              <Badge variant={recentClaimsCount >= 6 ? "destructive" : "secondary"}>
+                {recentClaimsCount} 次領獎
+              </Badge>
+            )}
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="text-red-500 hover:text-red-700 hover:bg-red-100"
+              onClick={handleDelete}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         <WalletAnalyticsDisplay analytics={analytics} />

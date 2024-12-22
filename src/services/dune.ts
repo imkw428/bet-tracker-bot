@@ -5,7 +5,7 @@ class DuneService {
   private client: DuneClient;
 
   constructor() {
-    this.client = new DuneClient({ apiKey: 'YOUR_API_KEY' });
+    this.client = new DuneClient("MdStLrxoohfepf1sWAbISw21di5WQ8Sa");
   }
 
   async updateWalletAnalytics() {
