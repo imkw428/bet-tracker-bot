@@ -14,8 +14,8 @@ export const WalletDashboard = ({ currentEpoch, wallets, monitoring }: WalletDas
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <Card className="p-4 col-span-full bg-white dark:bg-gray-900 shadow-lg border border-gray-100 dark:border-gray-800">
-        <h2 className="text-lg font-bold mb-4 text-purple-600 dark:text-purple-400">當前狀態</h2>
+      <Card className="p-4 col-span-full bg-white dark:bg-gray-900 shadow-lg border border-emerald-100 dark:border-emerald-800">
+        <h2 className="text-lg font-bold mb-4 text-emerald-600 dark:text-emerald-400">當前狀態</h2>
         <div className="space-y-2">
           <p className="text-sm">當前回合: <span className="animate-blink">{currentEpoch}</span></p>
           <p className="text-sm">監控錢包數量: {wallets.length}</p>
