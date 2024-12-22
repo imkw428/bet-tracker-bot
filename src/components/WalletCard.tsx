@@ -66,6 +66,9 @@ export const WalletCard = ({
               {address.slice(0, 6)}...{address.slice(-4)}
             </h2>
             <p className="text-xs text-muted-foreground">
+              首次發現: {firstSeen}
+            </p>
+            <p className="text-xs text-muted-foreground">
               累計時間: {formatTotalTime(totalTimeOnList)}
             </p>
             <Badge variant={hasHistory ? "default" : "secondary"} className="mt-1">
