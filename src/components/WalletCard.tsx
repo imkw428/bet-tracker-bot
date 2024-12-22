@@ -22,8 +22,6 @@ interface WalletCardProps {
   recentBets: Bet[];
   note: string;
   analytics?: WalletAnalytics;
-  firstSeen: string;
-  totalTimeOnList?: number;
   currentEpoch: number;
 }
 
@@ -31,8 +29,6 @@ export const WalletCard = ({
   address, 
   history, 
   analytics,
-  firstSeen,
-  totalTimeOnList = 0,
   currentEpoch
 }: WalletCardProps) => {
   const winningEpochs = history?.claims.map(claim => claim.epoch) || [];
@@ -51,7 +47,7 @@ export const WalletCard = ({
     ];
 
     return Array.from({ length: 5 }, (_, index) => {
-      const roundEpoch = currentEpoch + 1 - index;
+      const roundEpoch = currentEpoch - index;
       const bet = allBets.find(b => b.epoch === roundEpoch);
       const won = winningEpochs.includes(roundEpoch);
       
@@ -59,8 +55,7 @@ export const WalletCard = ({
         epoch: roundEpoch,
         type: bet?.type || null,
         amount: bet?.amount || null,
-        won,
-        status: index === 0 ? '可下注' : (index === 1 ? '運行中' : '已完成')
+        won
       };
     });
   };
@@ -70,8 +65,6 @@ export const WalletCard = ({
       <div className="space-y-4">
         <WalletHeader
           address={address}
-          firstSeen={firstSeen}
-          totalTimeOnList={totalTimeOnList}
           hasHistory={hasHistory}
         />
 

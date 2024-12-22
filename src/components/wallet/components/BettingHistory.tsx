@@ -13,7 +13,6 @@ interface Round {
   type: 'bull' | 'bear' | null;
   amount: string | null;
   won: boolean;
-  status: '可下注' | '運行中' | '已完成';
 }
 
 interface BettingHistoryProps {
@@ -29,7 +28,6 @@ export const BettingHistory = ({ rounds }: BettingHistoryProps) => {
             <TableHead className="w-24">回合</TableHead>
             <TableHead>下注</TableHead>
             <TableHead className="text-right">金額</TableHead>
-            <TableHead className="w-20">狀態</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -47,25 +45,6 @@ export const BettingHistory = ({ rounds }: BettingHistoryProps) => {
               </TableCell>
               <TableCell className="text-right">
                 {round.amount ? `${round.amount} BNB` : "-"}
-              </TableCell>
-              <TableCell>
-                {round.status === '可下注' ? (
-                  <Badge variant="outline" className="bg-blue-100">
-                    可下注
-                  </Badge>
-                ) : round.status === '運行中' ? (
-                  <Badge variant="outline" className="bg-yellow-100">
-                    運行中
-                  </Badge>
-                ) : round.won ? (
-                  <Badge variant="default" className="bg-win">
-                    獲勝
-                  </Badge>
-                ) : round.type ? (
-                  <Badge variant="default" className="bg-loss">
-                    失敗
-                  </Badge>
-                ) : "-"}
               </TableCell>
             </TableRow>
           ))}
