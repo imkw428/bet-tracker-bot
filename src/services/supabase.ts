@@ -4,6 +4,8 @@ interface WalletData {
   address: string;
   note: string;
   created_at?: string;
+  total_time_on_list?: number; // 總計在列表上的時間（分鐘）
+  last_seen_at?: string; // 最後一次在列表上的時間
 }
 
 class SupabaseService {
@@ -31,7 +33,7 @@ class SupabaseService {
   async getWallets(): Promise<WalletData[]> {
     const { data, error } = await this.client
       .from('wallets')
-      .select('address, note, created_at')
+      .select('address, note, created_at, total_time_on_list, last_seen_at')
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -43,9 +45,15 @@ class SupabaseService {
   }
 
   async addWallet(address: string, note: string = ''): Promise<WalletData | null> {
+    const now = new Date().toISOString();
     const { data, error } = await this.client
       .from('wallets')
-      .insert([{ address, note }])
+      .insert([{ 
+        address, 
+        note, 
+        total_time_on_list: 0,
+        last_seen_at: now
+      }])
       .select()
       .single();
 
@@ -55,6 +63,36 @@ class SupabaseService {
     }
 
     return data;
+  }
+
+  async updateWalletTime(address: string): Promise<boolean> {
+    const now = new Date();
+    const { data: wallet } = await this.client
+      .from('wallets')
+      .select('last_seen_at, total_time_on_list')
+      .eq('address', address)
+      .single();
+
+    if (wallet) {
+      const lastSeen = new Date(wallet.last_seen_at);
+      const timeDiff = Math.floor((now.getTime() - lastSeen.getTime()) / (1000 * 60)); // 轉換為分鐘
+      const newTotalTime = (wallet.total_time_on_list || 0) + timeDiff;
+
+      const { error } = await this.client
+        .from('wallets')
+        .update({ 
+          total_time_on_list: newTotalTime,
+          last_seen_at: now.toISOString()
+        })
+        .eq('address', address);
+
+      if (error) {
+        console.error('更新錢包時間失敗:', error);
+        return false;
+      }
+      return true;
+    }
+    return false;
   }
 
   async updateWalletNote(address: string, note: string): Promise<boolean> {
