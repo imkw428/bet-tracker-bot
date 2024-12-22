@@ -15,6 +15,31 @@ class SupabaseService {
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3bnFhZWJwYmpybWVldHlsa3piIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ4MjU2NDYsImV4cCI6MjA1MDQwMTY0Nn0.JvXRyTuOVx3i8nSmF3I9cJvyUbggtPHrBhqt6maFYbE';
 
     this.client = createClient(supabaseUrl, supabaseKey);
+    this.initializeDatabase();
+  }
+
+  private async initializeDatabase() {
+    try {
+      // 檢查表格是否存在
+      const { error: checkError } = await this.client
+        .from('wallets')
+        .select('*')
+        .limit(1);
+
+      // 如果表格不存在，創建它
+      if (checkError && checkError.code === '42P01') {
+        const { error: createError } = await this.client
+          .rpc('create_wallets_table', {});
+
+        if (createError) {
+          console.error('創建表格失敗:', createError);
+        } else {
+          console.log('成功創建 wallets 表格');
+        }
+      }
+    } catch (error) {
+      console.error('初始化數據庫時出錯:', error);
+    }
   }
 
   public static getInstance(): SupabaseService {
@@ -33,7 +58,7 @@ class SupabaseService {
       .order('created_at', { ascending: true });
 
     if (error) {
-      console.error('Error fetching wallets:', error);
+      console.error('獲取錢包列表失敗:', error);
       return [];
     }
 
@@ -50,7 +75,7 @@ class SupabaseService {
       .single();
 
     if (error) {
-      console.error('Error adding wallet:', error);
+      console.error('添加錢包失敗:', error);
       return null;
     }
 
@@ -66,7 +91,7 @@ class SupabaseService {
       .eq('address', address);
 
     if (error) {
-      console.error('Error updating wallet note:', error);
+      console.error('更新錢包備註失敗:', error);
       return false;
     }
 
@@ -82,7 +107,7 @@ class SupabaseService {
       .eq('address', address);
 
     if (error) {
-      console.error('Error deleting wallet:', error);
+      console.error('刪除錢包失敗:', error);
       return false;
     }
 
