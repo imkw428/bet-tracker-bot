@@ -63,7 +63,7 @@ export const WalletCard = ({
     }
   };
 
-  // 獲取最近五個回合的記錄，從當前回合開始
+  // 獲取最近五個回合的記錄，包括當前可下注回合和運行中回合
   const getRecentRounds = () => {
     if (!history) return [];
     
@@ -74,7 +74,7 @@ export const WalletCard = ({
 
     // 從當前回合開始，生成最近 5 個回合的數據
     return Array.from({ length: 5 }, (_, index) => {
-      const roundEpoch = currentEpoch - index;
+      const roundEpoch = currentEpoch + 1 - index;
       const bet = allBets.find(b => b.epoch === roundEpoch);
       const won = winningEpochs.includes(roundEpoch);
       
@@ -82,7 +82,8 @@ export const WalletCard = ({
         epoch: roundEpoch,
         type: bet?.type || null,
         amount: bet?.amount || null,
-        won
+        won,
+        status: index === 0 ? '可下注' : (index === 1 ? '運行中' : '已完成')
       };
     });
   };
@@ -135,7 +136,7 @@ export const WalletCard = ({
                 <TableHead className="w-24">回合</TableHead>
                 <TableHead>下注</TableHead>
                 <TableHead className="text-right">金額</TableHead>
-                <TableHead className="w-20">結果</TableHead>
+                <TableHead className="w-20">狀態</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -155,7 +156,15 @@ export const WalletCard = ({
                     {round.amount ? `${round.amount} BNB` : "-"}
                   </TableCell>
                   <TableCell>
-                    {round.won ? (
+                    {round.status === '可下注' ? (
+                      <Badge variant="outline" className="bg-blue-100">
+                        可下注
+                      </Badge>
+                    ) : round.status === '運行中' ? (
+                      <Badge variant="outline" className="bg-yellow-100">
+                        運行中
+                      </Badge>
+                    ) : round.won ? (
                       <Badge variant="default" className="bg-win">
                         獲勝
                       </Badge>
