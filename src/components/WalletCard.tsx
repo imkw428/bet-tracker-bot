@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { WalletAnalytics } from "@/types/wallet";
 
 interface Bet {
   type: 'bull' | 'bear';
@@ -18,9 +19,10 @@ interface WalletCardProps {
   history: WalletHistory | null;
   recentBets: Bet[];
   note: string;
+  analytics?: WalletAnalytics;
 }
 
-export const WalletCard = ({ address, history, recentBets, note }: WalletCardProps) => {
+export const WalletCard = ({ address, history, recentBets, note, analytics }: WalletCardProps) => {
   const winningEpochs = history?.claims.map(claim => claim.epoch) || [];
 
   return (
@@ -34,6 +36,29 @@ export const WalletCard = ({ address, history, recentBets, note }: WalletCardPro
             <span className="text-xs text-muted-foreground">{note}</span>
           )}
         </div>
+
+        {analytics && (
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div>
+              <div className="font-bold mb-1">一致性</div>
+              <div className={`${analytics.consistency > 0.7 ? 'text-win' : 'text-neutral'}`}>
+                {(analytics.consistency * 100).toFixed(1)}%
+              </div>
+            </div>
+            <div>
+              <div className="font-bold mb-1">盈利能力</div>
+              <div className={`${analytics.profitability > 0 ? 'text-win' : 'text-loss'}`}>
+                {analytics.profitability.toFixed(3)} BNB
+              </div>
+            </div>
+            <div>
+              <div className="font-bold mb-1">活跃度</div>
+              <div className={`${analytics.activityScore > 0.5 ? 'text-win' : 'text-neutral'}`}>
+                {(analytics.activityScore * 100).toFixed(1)}%
+              </div>
+            </div>
+          </div>
+        )}
 
         {winningEpochs.length > 0 && (
           <div>
