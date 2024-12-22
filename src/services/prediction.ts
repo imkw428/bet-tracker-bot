@@ -11,15 +11,14 @@ const PREDICTION_ABI = [
 const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
 const BLOCKS_PER_QUERY = 2000;
 
+// Updated list of reliable public RPC endpoints
 const RPC_ENDPOINTS = [
-  "https://bsc.getblock.io/mainnet/?api_key=your-api-key",
-  "https://bsc.blockpi.network/v1/rpc/public",
-  "https://1rpc.io/bnb",
-  "https://bsc.meowrpc.com",
-  "https://bsc.publicnode.com",
+  "https://bsc-dataseed1.binance.org",
+  "https://bsc-dataseed2.binance.org",
+  "https://bsc-dataseed3.binance.org",
+  "https://bsc-dataseed4.binance.org",
   "https://binance.llamarpc.com",
-  "https://bsc-mainnet.public.blastapi.io",
-  "https://bsc-rpc.gateway.pokt.network"
+  "https://bsc.publicnode.com",
 ];
 
 export class PredictionService {
@@ -49,14 +48,27 @@ export class PredictionService {
   }
 
   private async switchToNextRpc(): Promise<void> {
-    console.log(`Switching to next RPC node, current index: ${this.currentRpcIndex}`);
+    console.log(`Switching to next RPC endpoint, current index: ${this.currentRpcIndex}`);
     this.currentRpcIndex = (this.currentRpcIndex + 1) % RPC_ENDPOINTS.length;
-    this.provider = this.createProvider();
-    this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
     
-    if (this.currentRpcIndex === 0) {
-      this.retryCount++;
-      await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, this.retryCount), 30000)));
+    try {
+      this.provider = this.createProvider();
+      this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
+      
+      // Test the connection
+      await this.provider.getNetwork();
+    } catch (error) {
+      console.error(`Failed to connect to RPC endpoint ${RPC_ENDPOINTS[this.currentRpcIndex]}:`, error);
+      
+      if (this.currentRpcIndex === 0) {
+        this.retryCount++;
+        await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, this.retryCount), 30000)));
+      }
+      
+      // If we haven't exceeded max retries, try the next endpoint
+      if (this.retryCount < this.maxRetries) {
+        await this.switchToNextRpc();
+      }
     }
   }
 
