@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { PredictionService } from '@/services/prediction';
-import { duneService } from '@/services/dune';
 import { useToast } from "@/components/ui/use-toast";
 import { WalletData } from '../types';
 import { supabaseService } from '@/services/supabase';
