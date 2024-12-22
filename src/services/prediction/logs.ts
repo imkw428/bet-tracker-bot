@@ -5,7 +5,7 @@ import { WalletHistory } from './types';
 export class LogService {
   constructor(
     private provider: ethers.JsonRpcProvider,
-    private interface: ethers.Interface
+    private contractInterface: ethers.Interface
   ) {}
 
   private async getBlockRanges(fromBlock: number, toBlock: number): Promise<Array<[number, number]>> {
@@ -26,9 +26,9 @@ export class LogService {
       address: PREDICTION_ADDRESS,
       topics: [
         [
-          this.interface.getEvent('BetBull').topicHash,
-          this.interface.getEvent('BetBear').topicHash,
-          this.interface.getEvent('Claim').topicHash,
+          this.contractInterface.getEvent('BetBull').topicHash,
+          this.contractInterface.getEvent('BetBear').topicHash,
+          this.contractInterface.getEvent('Claim').topicHash,
         ],
         ethers.zeroPadValue(address.toLowerCase(), 32),
       ],
@@ -47,7 +47,7 @@ export class LogService {
         });
 
         for (const log of logs) {
-          const parsedLog = this.interface.parseLog({
+          const parsedLog = this.contractInterface.parseLog({
             topics: log.topics as string[],
             data: log.data,
           });
