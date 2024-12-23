@@ -4,7 +4,7 @@ import { useWalletData } from './wallet/hooks/useWalletData';
 import { useWalletMonitoring } from './wallet/hooks/useWalletMonitoring';
 import { MonitorHeader } from './wallet/components/MonitorHeader';
 import { WalletInput } from './wallet/components/WalletInput';
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabaseService } from '@/services/supabase';
 
 export const WalletMonitor = () => {
@@ -29,6 +29,8 @@ export const WalletMonitor = () => {
 
   const handleAddWallet = async (address: string) => {
     try {
+      console.log('Attempting to add wallet:', address);
+      
       // 檢查地址格式
       if (!address || address.length !== 42 || !address.startsWith('0x')) {
         toast({
@@ -50,13 +52,21 @@ export const WalletMonitor = () => {
         return;
       }
 
+      // 添加錢包到 Supabase
       const wallet = await supabaseService.addWallet(address);
+      console.log('Wallet added to Supabase:', wallet);
+      
       if (wallet) {
+        // 更新本地狀態
         await handleWalletAdd(wallet);
+        console.log('Wallet added to local state');
+        
         toast({
           title: "成功",
           description: "已成功添加新錢包到監控列表",
         });
+      } else {
+        throw new Error('Failed to add wallet');
       }
     } catch (error) {
       console.error('添加錢包時發生錯誤:', error);

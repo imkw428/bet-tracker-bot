@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 interface WalletInputProps {
   onAddWallet: (address: string) => void;
@@ -26,11 +26,6 @@ export const WalletInput = ({ onAddWallet }: WalletInputProps) => {
 
     onAddWallet(address.toLowerCase());
     setAddress('');
-    
-    toast({
-      title: "成功",
-      description: "已添加錢包地址到監控列表",
-    });
   };
 
   return (
