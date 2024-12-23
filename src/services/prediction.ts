@@ -20,11 +20,15 @@ const BSC_NETWORK = {
   ensNetwork: null
 };
 
+// Updated RPC endpoints with more reliable and CORS-enabled nodes
 const RPC_ENDPOINTS = [
-  "https://bsc.publicnode.com",
-  "https://1rpc.io/bnb",
-  "https://bsc.meowrpc.com",
-  "https://binance.llamarpc.com"
+  "https://bsc-dataseed.binance.org",
+  "https://bsc-dataseed1.binance.org",
+  "https://bsc-dataseed2.binance.org",
+  "https://bsc-dataseed3.binance.org",
+  "https://bsc-dataseed4.binance.org",
+  "https://endpoints.omniatech.io/v1/bsc/mainnet/public",
+  "https://bsc.meowrpc.com"
 ];
 
 export class PredictionService {
@@ -52,8 +56,17 @@ export class PredictionService {
         batchMaxCount: 1,
         polling: true,
         pollingInterval: 15000,
+        cacheTimeout: -1, // Disable caching to prevent stale data
+        timeout: 30000, // Increase timeout to 30 seconds
       }
     );
+
+    // Add custom error handling for the provider
+    provider.on("error", (error) => {
+      console.error("Provider error:", error);
+      this.switchToNextRpc();
+    });
+
     return provider;
   }
 
@@ -64,6 +77,8 @@ export class PredictionService {
       45000
     );
     await new Promise(resolve => setTimeout(resolve, backoffDelay));
+    
+    // Reset provider and contract with next RPC
     this.currentRpcIndex = (this.currentRpcIndex + 1) % RPC_ENDPOINTS.length;
     this.provider = this.createProvider();
     this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
