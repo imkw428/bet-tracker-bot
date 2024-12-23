@@ -35,12 +35,7 @@ export class LogService {
 
   async queryLogsInBatches(address: string): Promise<WalletHistory> {
     const provider = await providerService.getProvider();
-    
-    const latestBlock = await this.retryOperation(async () => {
-      return await provider.getBlockNumber();
-    });
-    
-    // 只查詢最近5個區塊，進一步減少負載
+    const latestBlock = await provider.getBlockNumber();
     const fromBlock = latestBlock - 5;
     const ranges = await this.getBlockRanges(fromBlock, latestBlock);
 
@@ -64,17 +59,13 @@ export class LogService {
 
     for (const [start, end] of ranges) {
       try {
-        const logs = await this.retryOperation(async () => {
-          return await provider.getLogs({
-            ...filter,
-            fromBlock: start,
-            toBlock: end
-          });
+        const logs = await provider.getLogs({
+          ...filter,
+          fromBlock: start,
+          toBlock: end
         });
 
         if (logs.length > 0) {
-          console.log(`區塊 ${start}-${end} 發現 ${logs.length} 筆記錄`);
-          
           for (const log of logs) {
             const event = log.topics[0];
             const epoch = Number(log.topics[2]);
@@ -89,12 +80,11 @@ export class LogService {
             }
           }
           
-          // 只在找到記錄時等待，避免不必要的延遲
           await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
         }
       } catch (error) {
-        console.error(`查詢區塊 ${start}-${end} 失敗:`, error);
-        // 遇到錯誤時切換節點
+        // 暫時註解掉錯誤處理和日誌記錄
+        // console.error(`查詢區塊 ${start}-${end} 失敗:`, error);
         await providerService.getProvider();
       }
     }
