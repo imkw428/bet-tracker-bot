@@ -8,9 +8,11 @@ export const PREDICTION_ABI = [
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
 
-export const BLOCKS_PER_QUERY = 50; // Reduced block query size for better reliability
+// Reduced block query size to prevent timeouts
+export const BLOCKS_PER_QUERY = 25;
 
-export const REQUEST_DELAY = 5000; // Increased delay to 5 seconds
+// Increased delay between requests
+export const REQUEST_DELAY = 10000;
 
 // Updated RPC endpoints with more reliable nodes
 export const RPC_ENDPOINTS = [
@@ -18,8 +20,6 @@ export const RPC_ENDPOINTS = [
   "https://bsc-dataseed2.binance.org",
   "https://bsc-dataseed3.binance.org",
   "https://bsc-dataseed4.binance.org",
-  "https://endpoints.omniatech.io/v1/bsc/mainnet/public",
-  "https://bsc.meowrpc.com",
+  "https://bsc-dataseed.binance.org",
   "https://binance.nodereal.io",
-  "https://bsc-mainnet.public.blastapi.io"
 ];
