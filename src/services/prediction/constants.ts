@@ -16,7 +16,7 @@ export const REQUEST_DELAY = 10000;
 
 // Updated RPC endpoints to use QuickNode
 export const RPC_ENDPOINTS = [
-  "https://bold-twilight-tree.bsc.discover.quiknode.pro/",
+  "https://bold-twilight-tree.bsc.discover.quiknode.pro/3c8c5c3d2f7c0d3d3d3d3d3d3d3d3d3d3d3d3d3d/",
   "https://bsc-dataseed1.binance.org",
   "https://bsc-dataseed2.binance.org",
   "https://bsc-dataseed3.binance.org",
