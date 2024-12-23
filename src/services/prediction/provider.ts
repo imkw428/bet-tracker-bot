@@ -19,8 +19,7 @@ export class ProviderService {
     const provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex], {
       chainId: 56,
       name: 'bnb',
-      ensAddress: null,
-      timeout: 15000 // Increased timeout
+      ensAddress: null
     });
     
     provider.pollingInterval = this.normalPollingInterval;
@@ -147,4 +146,5 @@ export class ProviderService {
       return false;
     }
   }
+
 }
