@@ -5,11 +5,11 @@ export class ProviderService {
   private providers: ethers.JsonRpcProvider[];
   private currentProviderIndex: number;
   private readonly rpcUrls = [
-    'https://bsc-dataseed1.binance.org',
-    'https://bsc-dataseed2.binance.org',
-    'https://bsc-dataseed3.binance.org',
-    'https://bsc-dataseed4.binance.org',
-    'https://bsc-dataseed.binance.org',
+    'https://bsc.publicnode.com',
+    'https://bsc-mainnet.public.blastapi.io',
+    'https://binance.llamarpc.com',
+    'https://bsc-rpc.gateway.pokt.network',
+    'https://bsc.meowrpc.com'
   ];
 
   private constructor() {
