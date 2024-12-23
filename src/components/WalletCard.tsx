@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/card";
-import { formatEther } from "ethers";
 import { Badge } from "@/components/ui/badge";
 
 interface Bet {
@@ -23,6 +22,10 @@ interface WalletCardProps {
 export const WalletCard = ({ address, history, recentBets }: WalletCardProps) => {
   // 計算贏得的回合
   const winningEpochs = history?.claims.map(claim => claim.epoch) || [];
+
+  // 從 recentBets 中提取最新的看漲和看跌下注
+  const latestBullBet = recentBets.find(bet => bet.type === 'bull');
+  const latestBearBet = recentBets.find(bet => bet.type === 'bear');
 
   return (
     <Card className="p-4">
@@ -66,7 +69,14 @@ export const WalletCard = ({ address, history, recentBets }: WalletCardProps) =>
             <h3 className="font-bold mb-2">歷史記錄</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <h4 className="font-bold text-win mb-2">看漲下注</h4>
+                <h4 className="font-bold text-win mb-2">
+                  看漲下注 
+                  {latestBullBet && (
+                    <span className="ml-2 text-sm">
+                      (最新: 回合 {latestBullBet.epoch})
+                    </span>
+                  )}
+                </h4>
                 {history.bulls.map((bet, i) => (
                   <div key={i} className="text-sm">
                     回合 {bet.epoch}: {bet.amount} BNB
@@ -74,7 +84,14 @@ export const WalletCard = ({ address, history, recentBets }: WalletCardProps) =>
                 ))}
               </div>
               <div>
-                <h4 className="font-bold text-loss mb-2">看跌下注</h4>
+                <h4 className="font-bold text-loss mb-2">
+                  看跌下注
+                  {latestBearBet && (
+                    <span className="ml-2 text-sm">
+                      (最新: 回合 {latestBearBet.epoch})
+                    </span>
+                  )}
+                </h4>
                 {history.bears.map((bet, i) => (
                   <div key={i} className="text-sm">
                     回合 {bet.epoch}: {bet.amount} BNB
