@@ -29,16 +29,8 @@ export const WalletMonitor = () => {
 
   const handleAddWallet = async (address: string) => {
     try {
-      // 檢查地址格式
-      if (!address || address.length !== 42 || !address.startsWith('0x')) {
-        toast({
-          title: "錯誤",
-          description: "請輸入有效的錢包地址",
-          variant: "destructive",
-        });
-        return;
-      }
-
+      console.log('Starting wallet addition process for:', address);
+      
       // 檢查是否已存在
       const exists = wallets.some(w => w.address.toLowerCase() === address.toLowerCase());
       if (exists) {
@@ -51,8 +43,12 @@ export const WalletMonitor = () => {
       }
 
       const wallet = await supabaseService.addWallet(address);
+      console.log('Wallet added to Supabase:', wallet);
+      
       if (wallet) {
         await handleWalletAdd(wallet);
+        console.log('Wallet added to local state');
+        
         toast({
           title: "成功",
           description: "已成功添加新錢包到監控列表",
@@ -62,7 +58,7 @@ export const WalletMonitor = () => {
       console.error('添加錢包時發生錯誤:', error);
       toast({
         title: "錯誤",
-        description: "添加錢包時發生錯誤",
+        description: "添加錢包時發生錯誤，請稍後再試",
         variant: "destructive",
       });
     }

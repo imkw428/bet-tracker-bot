@@ -11,21 +11,32 @@ export const WalletInput = ({ onAddWallet }: WalletInputProps) => {
   const [address, setAddress] = useState('');
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 簡單的地址格式驗證
-    if (!address.match(/^0x[a-fA-F0-9]{40}$/)) {
+    try {
+      // 基本地址格式驗證
+      if (!address || !address.startsWith('0x') || address.length !== 42) {
+        toast({
+          title: "錯誤",
+          description: "請輸入有效的錢包地址 (0x...)",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('Attempting to add wallet:', address);
+      await onAddWallet(address.toLowerCase());
+      setAddress('');
+      
+    } catch (error) {
+      console.error('添加錢包時發生錯誤:', error);
       toast({
         title: "錯誤",
-        description: "請輸入有效的錢包地址",
+        description: "添加錢包失敗，請稍後再試",
         variant: "destructive",
       });
-      return;
     }
-
-    onAddWallet(address.toLowerCase());
-    setAddress('');
   };
 
   return (
