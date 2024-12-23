@@ -14,6 +14,14 @@ const QUERY_DELAY = 3000; // 增加延遲
 const MAX_BLOCKS = 200; // 減少最大區塊範圍
 const RPC_SWITCH_DELAY = 5000;
 
+// BSC Network Configuration
+const BSC_NETWORK = {
+  name: 'bnb',
+  chainId: 56,
+  ensAddress: null,
+  ensNetwork: null
+};
+
 // 擴充 RPC 節點列表
 const RPC_ENDPOINTS = [
   "https://bsc-dataseed.binance.org",
@@ -42,8 +50,8 @@ export class PredictionService {
 
   private createProvider(): ethers.JsonRpcProvider {
     const provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex], {
-      staticNetwork: true,
-      timeout: 10000, // 10秒超時
+      ...BSC_NETWORK,
+      timeout: 10000
     });
     return provider;
   }
