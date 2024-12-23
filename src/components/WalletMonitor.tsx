@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ export const WalletMonitor = () => {
   const [monitoring, setMonitoring] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [wallets, setWallets] = useState<WalletData[]>([]);
+  const predictionServiceRef = useRef<PredictionService | null>(null);
   
   // 載入已儲存的錢包
   useEffect(() => {
@@ -58,10 +59,10 @@ export const WalletMonitor = () => {
   }, [toast]);
 
   useEffect(() => {
-    const predictionService = new PredictionService();
-    let interval: NodeJS.Timeout;
-
     if (monitoring && wallets.length > 0 && !isPaused) {
+      const predictionService = new PredictionService();
+      predictionServiceRef.current = predictionService;
+
       const updateData = async () => {
         try {
           const epoch = await predictionService.getCurrentEpoch();
@@ -101,7 +102,7 @@ export const WalletMonitor = () => {
       };
 
       updateData();
-      interval = setInterval(updateData, 60000);
+      const interval = setInterval(updateData, 60000);
 
       wallets.forEach(wallet => {
         predictionService.onNewBet(wallet.address, (bet) => {
@@ -125,11 +126,15 @@ export const WalletMonitor = () => {
           }
         });
       });
-    }
 
-    return () => {
-      clearInterval(interval);
-    };
+      return () => {
+        clearInterval(interval);
+        if (predictionServiceRef.current) {
+          predictionServiceRef.current.cleanup();
+          predictionServiceRef.current = null;
+        }
+      };
+    }
   }, [monitoring, wallets, toast, isPaused]);
 
   const addWallet = async () => {

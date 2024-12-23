@@ -24,12 +24,13 @@ export class ProviderManager {
       BSC_NETWORK
     );
 
-    provider.websocket.on('close', () => {
+    // In ethers v6, we use the _websocket property
+    provider._websocket.onclose = () => {
       console.log('WebSocket connection closed. Attempting to reconnect...');
       setTimeout(() => {
         this.createWebSocketProvider();
       }, 5000);
-    });
+    };
 
     return provider;
   }

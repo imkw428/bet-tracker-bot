@@ -19,6 +19,7 @@ export class PredictionService {
   private providerManager: ProviderManager;
   private eventCache: EventCache;
   private lastRequestTime: number = 0;
+  private eventListeners: { [key: string]: () => void } = {};
 
   constructor() {
     this.providerManager = new ProviderManager();
@@ -156,7 +157,7 @@ export class PredictionService {
   }
 
   onNewBet(address: string, callback: (bet: { type: 'bull' | 'bear', epoch: number, amount: string }) => void) {
-    this.wsContract.on("BetBull", (sender: string, epoch: bigint, amount: bigint) => {
+    const bullHandler = (sender: string, epoch: bigint, amount: bigint) => {
       if (sender.toLowerCase() === address.toLowerCase()) {
         const cacheKey = this.eventCache.getCacheKey(address, Number(epoch));
         if (!this.eventCache.has(cacheKey)) {
@@ -168,9 +169,9 @@ export class PredictionService {
           });
         }
       }
-    });
+    };
 
-    this.wsContract.on("BetBear", (sender: string, epoch: bigint, amount: bigint) => {
+    const bearHandler = (sender: string, epoch: bigint, amount: bigint) => {
       if (sender.toLowerCase() === address.toLowerCase()) {
         const cacheKey = this.eventCache.getCacheKey(address, Number(epoch));
         if (!this.eventCache.has(cacheKey)) {
@@ -182,6 +183,26 @@ export class PredictionService {
           });
         }
       }
-    });
+    };
+
+    // Store event listeners for cleanup
+    this.eventListeners[`bull-${address}`] = () => this.wsContract.off("BetBull", bullHandler);
+    this.eventListeners[`bear-${address}`] = () => this.wsContract.off("BetBear", bearHandler);
+
+    // Add event listeners
+    this.wsContract.on("BetBull", bullHandler);
+    this.wsContract.on("BetBear", bearHandler);
+  }
+
+  // Add cleanup method
+  cleanup() {
+    // Remove all event listeners
+    Object.values(this.eventListeners).forEach(removeListener => removeListener());
+    this.eventListeners = {};
+    
+    // Close WebSocket connection
+    if (this.wsProvider._websocket) {
+      this.wsProvider._websocket.close();
+    }
   }
 }
