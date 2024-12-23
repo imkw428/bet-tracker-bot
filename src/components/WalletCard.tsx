@@ -29,17 +29,6 @@ export const WalletCard = ({ address, history, recentBets }: WalletCardProps) =>
     return Number(amount).toFixed(3);
   };
 
-  // 過濾重複的下注，只保留每個回合最新的一筆
-  const uniqueRecentBets = recentBets.reduce((acc: Bet[], current) => {
-    const existingBetIndex = acc.findIndex(bet => bet.epoch === current.epoch);
-    if (existingBetIndex === -1) {
-      acc.push(current);
-    } else {
-      acc[existingBetIndex] = current;
-    }
-    return acc;
-  }, []);
-
   return (
     <Card className="p-4">
       <h2 className="text-xl font-bold mb-4">
@@ -61,7 +50,7 @@ export const WalletCard = ({ address, history, recentBets }: WalletCardProps) =>
         <div>
           <h3 className="font-bold mb-2">最近下注</h3>
           <div className="space-y-2">
-            {uniqueRecentBets.map((bet, i) => (
+            {recentBets.map((bet, i) => (
               <div
                 key={`${bet.epoch}-${i}`}
                 className={`p-2 rounded ${
