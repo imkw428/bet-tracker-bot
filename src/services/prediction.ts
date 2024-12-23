@@ -9,17 +9,22 @@ const PREDICTION_ABI = [
 ];
 
 const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-const BLOCKS_PER_QUERY = 50; // Reduced from 100 to 50
-const QUERY_DELAY = 2000; // Increased from 1000ms to 2000ms
-const MAX_BLOCKS = 500; // Reduced from 1000 to 500
-const RPC_SWITCH_DELAY = 5000; // Increased from 2000ms to 5000ms
+const BLOCKS_PER_QUERY = 25; // 減少每次查詢的區塊數
+const QUERY_DELAY = 3000; // 增加延遲
+const MAX_BLOCKS = 200; // 減少最大區塊範圍
+const RPC_SWITCH_DELAY = 5000;
 
+// 擴充 RPC 節點列表
 const RPC_ENDPOINTS = [
   "https://bsc-dataseed.binance.org",
   "https://bsc-dataseed1.binance.org",
   "https://bsc-dataseed2.binance.org",
   "https://bsc-dataseed3.binance.org",
   "https://bsc-dataseed4.binance.org",
+  "https://bsc.nodereal.io",
+  "https://binance.nodereal.io",
+  "https://bsc-mainnet.public.blastapi.io",
+  "https://bsc.publicnode.com",
 ];
 
 export class PredictionService {
@@ -36,7 +41,11 @@ export class PredictionService {
   }
 
   private createProvider(): ethers.JsonRpcProvider {
-    return new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex]);
+    const provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex], {
+      staticNetwork: true,
+      timeout: 10000, // 10秒超時
+    });
+    return provider;
   }
 
   private async switchToNextRpc(): Promise<void> {
@@ -61,15 +70,20 @@ export class PredictionService {
       try {
         await this.throttleRequest();
         return await operation();
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Operation attempt failed (${i + 1}/${retries}):`, error);
-        if (i < retries - 1) {
-          await this.switchToNextRpc();
-          const delay = Math.min(2000 * Math.pow(2, i) + Math.random() * 1000, 10000);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        } else {
-          throw error;
+        
+        // 檢查是否是網絡錯誤或超時
+        if (error.code === 'NETWORK_ERROR' || error.code === 'TIMEOUT' || error.message.includes('failed to meet quorum')) {
+          if (i < retries - 1) {
+            await this.switchToNextRpc();
+            const delay = Math.min(2000 * Math.pow(2, i) + Math.random() * 1000, 10000);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
         }
+        
+        throw error;
       }
     }
     throw new Error('All retry attempts failed');
@@ -93,32 +107,42 @@ export class PredictionService {
     for (let start = fromBlock; start <= actualToBlock; start += BLOCKS_PER_QUERY) {
       const end = Math.min(start + BLOCKS_PER_QUERY - 1, actualToBlock);
       ranges.push([start, end]);
+      
+      // 在每個範圍之間添加小延遲
+      if (start + BLOCKS_PER_QUERY <= actualToBlock) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
     }
     return ranges;
   }
 
   private async queryLogsInBatches(filter: any): Promise<ethers.Log[]> {
     return await this.executeWithRetry(async () => {
-      const latestBlock = await this.provider.getBlockNumber();
-      const fromBlock = latestBlock - MAX_BLOCKS;
-      const ranges = await this.getBlockRanges(fromBlock, latestBlock);
-      
-      const allLogs: ethers.Log[] = [];
-      for (const [start, end] of ranges) {
-        try {
-          await this.throttleRequest();
-          const logs = await this.provider.getLogs({
-            ...filter,
-            fromBlock: start,
-            toBlock: end,
-          });
-          allLogs.push(...logs);
-        } catch (error) {
-          console.error(`Error getting logs for range ${start}-${end}:`, error);
-          throw error;
+      try {
+        const latestBlock = await this.provider.getBlockNumber();
+        const fromBlock = latestBlock - MAX_BLOCKS;
+        const ranges = await this.getBlockRanges(fromBlock, latestBlock);
+        
+        const allLogs: ethers.Log[] = [];
+        for (const [start, end] of ranges) {
+          try {
+            await this.throttleRequest();
+            const logs = await this.provider.getLogs({
+              ...filter,
+              fromBlock: start,
+              toBlock: end,
+            });
+            allLogs.push(...logs);
+          } catch (error) {
+            console.error(`Error getting logs for range ${start}-${end}:`, error);
+            throw error;
+          }
         }
+        return allLogs;
+      } catch (error) {
+        console.error('Error in queryLogsInBatches:', error);
+        throw error;
       }
-      return allLogs;
     });
   }
 
