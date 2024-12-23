@@ -7,16 +7,19 @@ export const PREDICTION_ABI = [
 ];
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-export const BLOCKS_PER_QUERY = 50; // Reduced block range to minimize rate limiting
-export const REQUEST_DELAY = 5000; // Increased delay between requests
-export const RATE_LIMIT_DELAY = 30000; // 30 second delay when rate limit is hit
+export const BLOCKS_PER_QUERY = 25; // Further reduced block range
+export const REQUEST_DELAY = 8000; // Increased delay between requests
+export const RATE_LIMIT_DELAY = 45000; // Increased rate limit delay
+export const MAX_RETRIES = 8; // Increased max retries
 
 export const RPC_ENDPOINTS = [
+  "https://bsc-rpc.gateway.pokt.network",
+  "https://bsc-mainnet.nodereal.io/v1/64a9df0874fb4a93b9d0a3849de012d3",
+  "https://rpc.ankr.com/bsc",
   "https://bsc-dataseed1.binance.org",
   "https://bsc-dataseed2.binance.org",
   "https://bsc-dataseed3.binance.org",
   "https://bsc-dataseed4.binance.org",
-  "https://endpoints.omniatech.io/v1/bsc/mainnet/public",
   "https://bsc.blockpi.network/v1/rpc/public",
   "https://bsc-mainnet.public.blastapi.io",
   "https://bsc.meowrpc.com",
