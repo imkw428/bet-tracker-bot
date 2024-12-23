@@ -7,11 +7,11 @@ export const PREDICTION_ABI = [
 ];
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-export const BLOCKS_PER_QUERY = 100;
-export const REQUEST_DELAY = 3000;
+export const BLOCKS_PER_QUERY = 50; // Reduced block range to minimize rate limiting
+export const REQUEST_DELAY = 5000; // Increased delay between requests
+export const RATE_LIMIT_DELAY = 30000; // 30 second delay when rate limit is hit
 
 export const RPC_ENDPOINTS = [
-  "https://newest-quaint-needle.bsc.quiknode.pro/7af7a237cb588bf7328c258d9878a3c099c3356b",
   "https://bsc-dataseed1.binance.org",
   "https://bsc-dataseed2.binance.org",
   "https://bsc-dataseed3.binance.org",
@@ -19,5 +19,6 @@ export const RPC_ENDPOINTS = [
   "https://endpoints.omniatech.io/v1/bsc/mainnet/public",
   "https://bsc.blockpi.network/v1/rpc/public",
   "https://bsc-mainnet.public.blastapi.io",
-  "https://bsc.meowrpc.com"
+  "https://bsc.meowrpc.com",
+  "https://newest-quaint-needle.bsc.quiknode.pro/7af7a237cb588bf7328c258d9878a3c099c3356b"
 ];

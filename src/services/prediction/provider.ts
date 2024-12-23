@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { RPC_ENDPOINTS, REQUEST_DELAY } from './constants';
+import { RPC_ENDPOINTS, REQUEST_DELAY, RATE_LIMIT_DELAY } from './constants';
 
 export class ProviderService {
   private provider: ethers.JsonRpcProvider;
@@ -35,7 +35,10 @@ export class ProviderService {
   private async waitForRateLimit() {
     const now = Date.now();
     const timeSinceLastRequest = now - this.lastRequestTime;
-    const minDelay = REQUEST_DELAY * Math.pow(2, this.retryCount); // Exponential backoff
+    
+    // If we hit a rate limit, use a longer delay
+    const delay = this.retryCount > 0 ? RATE_LIMIT_DELAY : REQUEST_DELAY;
+    const minDelay = delay * Math.pow(2, this.retryCount); // Exponential backoff
     
     if (timeSinceLastRequest < minDelay) {
       await new Promise(resolve => setTimeout(resolve, minDelay - timeSinceLastRequest));
@@ -54,7 +57,6 @@ export class ProviderService {
       this.currentRpcIndex = nextIndex;
       attempts++;
     }
-    // If all endpoints have failed, reset and try again
     this.failedEndpoints.clear();
     return 0;
   }
@@ -67,7 +69,6 @@ export class ProviderService {
     
     try {
       this.provider = this.createProvider();
-      // Test the connection
       const network = await this.provider.getNetwork();
       if (network.chainId !== 56n) {
         throw new Error('Invalid chain ID');
@@ -75,8 +76,16 @@ export class ProviderService {
       console.log(`Successfully connected to ${RPC_ENDPOINTS[this.currentRpcIndex]}`);
       this.retryCount = 0;
       return this.provider;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Failed to connect to RPC endpoint ${RPC_ENDPOINTS[this.currentRpcIndex]}:`, error);
+      
+      // Check if it's a rate limit error
+      if (error.body && error.body.includes('rate limit')) {
+        console.log('Rate limit detected, adding longer delay');
+        this.retryCount++;
+        await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY));
+      }
+      
       this.failedEndpoints.add(RPC_ENDPOINTS[this.currentRpcIndex]);
       
       if (this.failedEndpoints.size === RPC_ENDPOINTS.length) {
@@ -84,7 +93,6 @@ export class ProviderService {
         if (this.retryCount >= this.maxRetries) {
           throw new Error('All RPC nodes failed to connect after maximum retries');
         }
-        // Reset failed endpoints and try again with increased delay
         this.failedEndpoints.clear();
         await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY * Math.pow(2, this.retryCount)));
       }
@@ -97,7 +105,6 @@ export class ProviderService {
     await this.waitForRateLimit();
     
     try {
-      // Test if current provider is healthy
       await this.provider.getNetwork();
       return this.provider;
     } catch (error) {
