@@ -5,7 +5,7 @@ export class ProviderService {
   private provider: ethers.JsonRpcProvider;
   private currentRpcIndex: number = 0;
   private retryCount: number = 0;
-  private readonly maxRetries: number = 5; // Increased max retries
+  private readonly maxRetries: number = 5;
   private readonly normalPollingInterval = 3000;
   private readonly intensivePollingInterval = 1000;
   private lastRequestTime: number = 0;
@@ -19,8 +19,7 @@ export class ProviderService {
     const provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex], {
       chainId: 56,
       name: 'bnb',
-      ensAddress: null,
-      staticNetwork: true // Added static network flag
+      ensAddress: null
     });
     provider.pollingInterval = this.normalPollingInterval;
     return provider;
@@ -41,7 +40,7 @@ export class ProviderService {
   private getNextAvailableRpc(): string | null {
     const availableRpcs = RPC_ENDPOINTS.filter(rpc => !this.failedNodes.has(rpc));
     if (availableRpcs.length === 0) {
-      this.failedNodes.clear(); // Reset failed nodes if all have failed
+      this.failedNodes.clear();
       return RPC_ENDPOINTS[0];
     }
     return availableRpcs[Math.floor(Math.random() * availableRpcs.length)];
@@ -59,8 +58,7 @@ export class ProviderService {
       const newProvider = new ethers.JsonRpcProvider(nextRpc, {
         chainId: 56,
         name: 'bnb',
-        ensAddress: null,
-        staticNetwork: true
+        ensAddress: null
       });
       
       await newProvider.getNetwork();

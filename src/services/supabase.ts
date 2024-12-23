@@ -91,6 +91,27 @@ class SupabaseService {
     }
   }
 
+  async updateWalletTime(address: string): Promise<boolean> {
+    try {
+      const { error } = await this.client
+        .from('wallets')
+        .update({ 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('address', address);
+
+      if (error) {
+        console.error('更新錢包時間失敗:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('更新錢包時間失敗:', error);
+      return false;
+    }
+  }
+
   async deleteWallet(address: string): Promise<boolean> {
     try {
       const { error } = await this.client
