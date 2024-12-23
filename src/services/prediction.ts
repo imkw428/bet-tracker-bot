@@ -3,7 +3,9 @@ import {
   PREDICTION_ABI, 
   PREDICTION_ADDRESS,
   BLOCKS_PER_QUERY,
-  QUERY_DELAY 
+  QUERY_DELAY,
+  CHUNK_SIZE,
+  MAX_RETRIES
 } from './blockchain/constants';
 import { ProviderManager } from './blockchain/provider';
 import { EventCache } from './blockchain/eventCache';
@@ -15,7 +17,6 @@ export class PredictionService {
   private providerManager: ProviderManager;
   private eventCache: EventCache;
   private lastRequestTime: number = 0;
-  private maxRetries: number = 12;
 
   constructor() {
     this.providerManager = new ProviderManager();
@@ -34,41 +35,40 @@ export class PredictionService {
     this.lastRequestTime = Date.now();
   }
 
-  private async executeWithRetry<T>(operation: () => Promise<T>): Promise<T> {
-    for (let i = 0; i < this.maxRetries; i++) {
-      try {
-        await this.throttleRequest();
-        const result = await operation();
-        this.providerManager.resetFailures();
-        return result;
-      } catch (error: any) {
-        console.error(`Operation attempt failed (${i + 1}/${this.maxRetries}):`, error);
+  private async executeWithRetry<T>(operation: () => Promise<T>, retryCount = 0): Promise<T> {
+    try {
+      await this.throttleRequest();
+      return await operation();
+    } catch (error: any) {
+      console.error(`Operation failed (attempt ${retryCount + 1}/${MAX_RETRIES}):`, error);
+
+      const isLimitExceeded = error.message?.includes('limit exceeded');
+      const isNetworkError = 
+        error.code === 'NETWORK_ERROR' ||
+        error.code === 'TIMEOUT' ||
+        error.code === 'SERVER_ERROR' ||
+        error.code === 'CALL_EXCEPTION' ||
+        error.message?.includes('failed to meet quorum') ||
+        error.message?.includes('Failed to fetch');
+
+      if ((isLimitExceeded || isNetworkError) && retryCount < MAX_RETRIES) {
+        const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
         
-        const isNetworkError = 
-          error.code === 'NETWORK_ERROR' ||
-          error.code === 'TIMEOUT' ||
-          error.code === 'SERVER_ERROR' ||
-          error.code === 'CALL_EXCEPTION' ||
-          error.message.includes('failed to meet quorum') ||
-          error.message.includes('limit exceeded') ||
-          error.message.includes('Failed to fetch') ||
-          error.message.includes('failed to get payload') ||
-          error.message.includes('connection error') ||
-          error.message.includes('network error') ||
-          error.message.includes('timeout') ||
-          error.message.includes('request failed');
+        if (isLimitExceeded) {
+          await new Promise(resolve => setTimeout(resolve, QUERY_DELAY * 2));
+        }
         
-        if (isNetworkError && i < this.maxRetries - 1) {
+        if (isNetworkError) {
           this.provider = await this.providerManager.switchToNextRpc();
           this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
-          // Add exponential backoff delay
-          await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, i), 10000)));
-          continue;
         }
-        throw error;
+        
+        return this.executeWithRetry(operation, retryCount + 1);
       }
+      
+      throw error;
     }
-    throw new Error('All retry attempts failed');
   }
 
   async getCurrentEpoch(): Promise<number> {
@@ -78,29 +78,29 @@ export class PredictionService {
     });
   }
 
-  private async queryLogs(filter: any): Promise<ethers.Log[]> {
-    return await this.executeWithRetry(async () => {
-      const latestBlock = await this.provider.getBlockNumber();
-      const fromBlock = Math.max(latestBlock - BLOCKS_PER_QUERY, 0);
+  private async queryLogsInChunks(filter: any, fromBlock: number, toBlock: number): Promise<ethers.Log[]> {
+    const logs: ethers.Log[] = [];
+    
+    for (let start = fromBlock; start <= toBlock; start += CHUNK_SIZE) {
+      const end = Math.min(start + CHUNK_SIZE - 1, toBlock);
       
-      // Split the request into smaller chunks to avoid rate limits
-      const blockChunkSize = 100;
-      const logs: ethers.Log[] = [];
-      
-      for (let start = fromBlock; start <= latestBlock; start += blockChunkSize) {
-        const end = Math.min(start + blockChunkSize, latestBlock);
-        const chunkLogs = await this.provider.getLogs({
+      const chunkLogs = await this.executeWithRetry(async () => {
+        return await this.provider.getLogs({
           ...filter,
           fromBlock: start,
           toBlock: end,
         });
-        logs.push(...chunkLogs);
-        // Add small delay between chunks
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
+      });
       
-      return logs;
-    });
+      logs.push(...chunkLogs);
+      
+      // Add delay between chunks to avoid rate limiting
+      if (start + CHUNK_SIZE <= toBlock) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    
+    return logs;
   }
 
   async getWalletHistory(address: string, fromEpoch: number, toEpoch: number) {
@@ -117,7 +117,9 @@ export class PredictionService {
     };
 
     try {
-      const logs = await this.queryLogs(filters);
+      const latestBlock = await this.provider.getBlockNumber();
+      const fromBlock = Math.max(latestBlock - BLOCKS_PER_QUERY, 0);
+      const logs = await this.queryLogsInChunks(filters, fromBlock, latestBlock);
       
       const bulls: { epoch: number; amount: string }[] = [];
       const bears: { epoch: number; amount: string }[] = [];
