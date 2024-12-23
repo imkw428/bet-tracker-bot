@@ -6,24 +6,26 @@ import { BetEvent, RoundInfo } from './types';
 
 export class PredictionService {
   private provider: ProviderService;
-  private contract: ethers.Contract;
+  private contract: ethers.Contract | null = null;
   private interface: ethers.Interface;
   private logService: LogService;
 
   constructor() {
     this.provider = new ProviderService();
     this.interface = new ethers.Interface(PREDICTION_ABI);
-    this.initializeContract();
     this.logService = new LogService(this.provider, this.interface);
   }
 
   private async initializeContract() {
-    const provider = await this.provider.getProvider();
-    this.contract = new ethers.Contract(
-      PREDICTION_ADDRESS,
-      PREDICTION_ABI,
-      provider
-    );
+    if (!this.contract) {
+      const provider = await this.provider.getProvider();
+      this.contract = new ethers.Contract(
+        PREDICTION_ADDRESS,
+        PREDICTION_ABI,
+        provider
+      );
+    }
+    return this.contract;
   }
 
   private async executeWithRetry<T>(operation: () => Promise<T>): Promise<T> {
@@ -45,7 +47,6 @@ export class PredictionService {
         this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, provider);
         retryCount++;
         
-        // Add delay between retries
         await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
       }
     }
@@ -54,14 +55,16 @@ export class PredictionService {
   }
 
   async getCurrentEpoch(): Promise<number> {
+    const contract = await this.initializeContract();
     return this.executeWithRetry(async () => {
-      const epoch = await this.contract.currentEpoch();
+      const epoch = await contract.currentEpoch();
       return Number(epoch);
     });
   }
 
   async getRoundInfo(epoch: number): Promise<RoundInfo> {
-    return this.executeWithRetry(() => this.contract.rounds(epoch));
+    const contract = await this.initializeContract();
+    return this.executeWithRetry(() => contract.rounds(epoch));
   }
 
   async getTimeUntilNextRound(): Promise<number> {
@@ -75,9 +78,11 @@ export class PredictionService {
     return this.executeWithRetry(() => this.logService.queryLogsInBatches(address));
   }
 
-  onNewBet(address: string, callback: (bet: BetEvent) => void) {
+  async onNewBet(address: string, callback: (bet: BetEvent) => void) {
+    const contract = await this.initializeContract();
+    
     const setupListeners = () => {
-      this.contract.on("BetBull", (sender: string, epoch: bigint, amount: bigint) => {
+      contract.on("BetBull", (sender: string, epoch: bigint, amount: bigint) => {
         if (sender.toLowerCase() === address.toLowerCase()) {
           callback({
             type: 'bull',
@@ -87,7 +92,7 @@ export class PredictionService {
         }
       });
 
-      this.contract.on("BetBear", (sender: string, epoch: bigint, amount: bigint) => {
+      contract.on("BetBear", (sender: string, epoch: bigint, amount: bigint) => {
         if (sender.toLowerCase() === address.toLowerCase()) {
           callback({
             type: 'bear',
@@ -101,8 +106,8 @@ export class PredictionService {
     setupListeners();
 
     return () => {
-      this.contract.removeAllListeners("BetBull");
-      this.contract.removeAllListeners("BetBear");
+      contract.removeAllListeners("BetBull");
+      contract.removeAllListeners("BetBear");
     };
   }
 
