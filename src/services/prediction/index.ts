@@ -42,7 +42,6 @@ export class PredictionService {
           throw new Error('Maximum retry attempts exceeded');
         }
         
-        // Recreate the provider and contract
         const provider = await this.provider.getProvider();
         this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, provider);
         retryCount++;
@@ -82,7 +81,7 @@ export class PredictionService {
     const contract = await this.initializeContract();
     
     const setupListeners = () => {
-      contract.on("BetBull", (sender: string, epoch: bigint, amount: bigint) => {
+      const bullListener = (sender: string, epoch: bigint, amount: bigint) => {
         if (sender.toLowerCase() === address.toLowerCase()) {
           callback({
             type: 'bull',
@@ -90,9 +89,9 @@ export class PredictionService {
             amount: ethers.formatEther(amount),
           });
         }
-      });
+      };
 
-      contract.on("BetBear", (sender: string, epoch: bigint, amount: bigint) => {
+      const bearListener = (sender: string, epoch: bigint, amount: bigint) => {
         if (sender.toLowerCase() === address.toLowerCase()) {
           callback({
             type: 'bear',
@@ -100,15 +99,18 @@ export class PredictionService {
             amount: ethers.formatEther(amount),
           });
         }
-      });
+      };
+
+      contract.on("BetBull", bullListener);
+      contract.on("BetBear", bearListener);
+
+      return () => {
+        contract.off("BetBull", bullListener);
+        contract.off("BetBear", bearListener);
+      };
     };
 
-    setupListeners();
-
-    return () => {
-      contract.removeAllListeners("BetBull");
-      contract.removeAllListeners("BetBear");
-    };
+    return setupListeners();
   }
 
   setPollingInterval(intensive: boolean) {
