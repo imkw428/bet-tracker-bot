@@ -44,7 +44,7 @@ export const WalletMonitor = () => {
           setCurrentEpoch(Number(epoch));
 
           for (const wallet of wallets) {
-            if (isPaused) break; // 如果在更新過程中被暫停，立即停止
+            if (isPaused) break; 
             
             try {
               const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
@@ -56,7 +56,7 @@ export const WalletMonitor = () => {
                   return w;
                 })
               );
-              await new Promise(resolve => setTimeout(resolve, 2000));
+              await new Promise(resolve => setTimeout(resolve, 5000));
             } catch (error) {
               console.error(`Error updating wallet ${wallet.address}:`, error);
               toast({
@@ -77,7 +77,7 @@ export const WalletMonitor = () => {
       };
 
       updateData();
-      interval = setInterval(updateData, 30000);
+      interval = setInterval(updateData, 60000);
 
       wallets.forEach(wallet => {
         predictionService.onNewBet(wallet.address, (bet) => {

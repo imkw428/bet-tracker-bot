@@ -9,9 +9,10 @@ const PREDICTION_ABI = [
 ];
 
 const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-const BLOCKS_PER_QUERY = 100; // 從 500 降到 100
-const QUERY_DELAY = 1000; // 從 200ms 增加到 1000ms
-const MAX_BLOCKS = 1000; // 限制最大查詢區塊數
+const BLOCKS_PER_QUERY = 50; // Reduced from 100 to 50
+const QUERY_DELAY = 2000; // Increased from 1000ms to 2000ms
+const MAX_BLOCKS = 500; // Reduced from 1000 to 500
+const RPC_SWITCH_DELAY = 5000; // Increased from 2000ms to 5000ms
 
 const RPC_ENDPOINTS = [
   "https://bsc-dataseed.binance.org",
@@ -26,6 +27,7 @@ export class PredictionService {
   private contract: ethers.Contract;
   private interface: ethers.Interface;
   private currentRpcIndex: number = 0;
+  private lastRequestTime: number = 0;
 
   constructor() {
     this.provider = this.createProvider();
@@ -42,20 +44,28 @@ export class PredictionService {
     this.provider = this.createProvider();
     this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
     console.log(`Switched to RPC endpoint: ${RPC_ENDPOINTS[this.currentRpcIndex]}`);
-    // 切換 RPC 後等待 2 秒
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, RPC_SWITCH_DELAY));
+  }
+
+  private async throttleRequest(): Promise<void> {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    if (timeSinceLastRequest < QUERY_DELAY) {
+      await new Promise(resolve => setTimeout(resolve, QUERY_DELAY - timeSinceLastRequest));
+    }
+    this.lastRequestTime = Date.now();
   }
 
   private async executeWithRetry<T>(operation: () => Promise<T>, retries = 3): Promise<T> {
     for (let i = 0; i < retries; i++) {
       try {
+        await this.throttleRequest();
         return await operation();
       } catch (error) {
         console.error(`Operation attempt failed (${i + 1}/${retries}):`, error);
         if (i < retries - 1) {
           await this.switchToNextRpc();
-          // 指數退避延遲
-          const delay = Math.min(1000 * Math.pow(2, i) + Math.random() * 1000, 10000);
+          const delay = Math.min(2000 * Math.pow(2, i) + Math.random() * 1000, 10000);
           await new Promise(resolve => setTimeout(resolve, delay));
         } else {
           throw error;
@@ -96,14 +106,13 @@ export class PredictionService {
       const allLogs: ethers.Log[] = [];
       for (const [start, end] of ranges) {
         try {
+          await this.throttleRequest();
           const logs = await this.provider.getLogs({
             ...filter,
             fromBlock: start,
             toBlock: end,
           });
           allLogs.push(...logs);
-          // 每次查詢後等待
-          await new Promise(resolve => setTimeout(resolve, QUERY_DELAY));
         } catch (error) {
           console.error(`Error getting logs for range ${start}-${end}:`, error);
           throw error;
