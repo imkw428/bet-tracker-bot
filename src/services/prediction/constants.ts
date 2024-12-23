@@ -14,9 +14,12 @@ export const BLOCKS_PER_QUERY = 25;
 // Increased delay between requests
 export const REQUEST_DELAY = 10000;
 
-// Updated RPC endpoints to use QuickNode
+// Base QuickNode URL - will be completed with API key from Supabase secrets
+const QUICKNODE_BASE_URL = "https://bold-twilight-tree.bsc.discover.quiknode.pro/";
+
+// Updated RPC endpoints with fallback nodes
 export const RPC_ENDPOINTS = [
-  "https://bold-twilight-tree.bsc.discover.quiknode.pro/3c8c5c3d2f7c0d3d3d3d3d3d3d3d3d3d3d3d3d3d/",
+  `${QUICKNODE_BASE_URL}${import.meta.env.VITE_QUICKNODE_API_KEY || ''}/`,
   "https://bsc-dataseed1.binance.org",
   "https://bsc-dataseed2.binance.org",
   "https://bsc-dataseed3.binance.org",

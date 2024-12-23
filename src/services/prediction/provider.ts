@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
 import { RPC_ENDPOINTS, REQUEST_DELAY } from './constants';
+import { useToast } from "@/components/ui/use-toast";
 
 export class ProviderService {
   private provider: ethers.JsonRpcProvider;
@@ -16,6 +17,12 @@ export class ProviderService {
   }
 
   private createProvider(): ethers.JsonRpcProvider {
+    // Check if QuickNode API key is configured
+    if (!import.meta.env.VITE_QUICKNODE_API_KEY && this.currentRpcIndex === 0) {
+      console.warn('QuickNode API key not configured, falling back to public nodes');
+      this.currentRpcIndex = 1; // Skip QuickNode endpoint
+    }
+
     const provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex], {
       chainId: 56,
       name: 'bnb',
