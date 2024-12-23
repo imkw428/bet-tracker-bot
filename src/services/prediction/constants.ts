@@ -8,11 +8,11 @@ export const PREDICTION_ABI = [
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
 
-// Reduced block query size to prevent timeouts
-export const BLOCKS_PER_QUERY = 25;
+// 減少批次大小以避免速率限制
+export const BLOCKS_PER_QUERY = 10;
 
-// Increased delay between requests
-export const REQUEST_DELAY = 10000;
+// 增加請求間隔
+export const REQUEST_DELAY = 15000;
 
 // QuickNode endpoints
 export const RPC_ENDPOINTS = [
