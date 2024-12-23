@@ -9,8 +9,8 @@ const PREDICTION_ABI = [
 ];
 
 const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-const BLOCKS_PER_QUERY = 5000;
-const QUERY_DELAY = 8000;
+const BLOCKS_PER_QUERY = 1000; // Reduced from 5000 to avoid rate limits
+const QUERY_DELAY = 1000; // Increased delay between requests
 const RPC_SWITCH_DELAY = 8000;
 
 const BSC_NETWORK = {
@@ -56,12 +56,10 @@ export class PredictionService {
         batchMaxCount: 1,
         polling: true,
         pollingInterval: 15000,
-        cacheTimeout: -1, // Disable caching to prevent stale data
-        timeout: 30000, // Increase timeout to 30 seconds
+        cacheTimeout: -1, // Disable caching
       }
     );
 
-    // Add custom error handling for the provider
     provider.on("error", (error) => {
       console.error("Provider error:", error);
       this.switchToNextRpc();
@@ -78,7 +76,6 @@ export class PredictionService {
     );
     await new Promise(resolve => setTimeout(resolve, backoffDelay));
     
-    // Reset provider and contract with next RPC
     this.currentRpcIndex = (this.currentRpcIndex + 1) % RPC_ENDPOINTS.length;
     this.provider = this.createProvider();
     this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
@@ -110,13 +107,13 @@ export class PredictionService {
           error.code === 'SERVER_ERROR' ||
           error.code === 'CALL_EXCEPTION' ||
           error.message.includes('failed to meet quorum') ||
+          error.message.includes('limit exceeded') ||
           error.message.includes('Failed to fetch') ||
           error.message.includes('failed to get payload') ||
           error.message.includes('connection error') ||
           error.message.includes('network error') ||
           error.message.includes('timeout') ||
-          error.message.includes('request failed') ||
-          error.message.includes('too many requests');
+          error.message.includes('request failed');
         
         if (isNetworkError && i < this.maxRetries - 1) {
           await this.switchToNextRpc();
@@ -146,7 +143,7 @@ export class PredictionService {
   private async queryLogs(filter: any): Promise<ethers.Log[]> {
     return await this.executeWithRetry(async () => {
       const latestBlock = await this.provider.getBlockNumber();
-      const fromBlock = latestBlock - BLOCKS_PER_QUERY;
+      const fromBlock = Math.max(latestBlock - BLOCKS_PER_QUERY, 0);
       
       const logs = await this.provider.getLogs({
         ...filter,
@@ -190,12 +187,10 @@ export class PredictionService {
         const amount = ethers.formatEther(parsedLog.args[2]);
         const cacheKey = this.getCacheKey(address, epoch);
 
-        // 檢查是否已經處理過這個事件
         if (this.eventCache.has(cacheKey)) {
           continue;
         }
 
-        // 將事件加入快取
         this.eventCache.set(cacheKey, true);
 
         switch (parsedLog.name) {
