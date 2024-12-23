@@ -1,85 +1,28 @@
 import { ethers } from 'ethers';
-
-const PREDICTION_ABI = [
-  "function currentEpoch() view returns (uint256)",
-  "function rounds(uint256) view returns (uint256 epoch, uint256 startTimestamp, uint256 lockTimestamp, uint256 closeTimestamp, int256 lockPrice, int256 closePrice, uint256 lockOracleId, uint256 closeOracleId, uint256 totalAmount, uint256 bullAmount, uint256 bearAmount, uint256 rewardBaseCalAmount, uint256 rewardAmount, bool oracleCalled)",
-  "event BetBull(address indexed sender, uint256 indexed epoch, uint256 amount)",
-  "event BetBear(address indexed sender, uint256 indexed epoch, uint256 amount)",
-  "event Claim(address indexed sender, uint256 indexed epoch, uint256 amount)",
-];
-
-const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-const BLOCKS_PER_QUERY = 1000; // Reduced from 5000 to avoid rate limits
-const QUERY_DELAY = 1000; // Increased delay between requests
-const RPC_SWITCH_DELAY = 8000;
-
-const BSC_NETWORK = {
-  name: 'bnb',
-  chainId: 56,
-  ensAddress: null,
-  ensNetwork: null
-};
-
-// Updated RPC endpoints with more reliable and CORS-enabled nodes
-const RPC_ENDPOINTS = [
-  "https://bsc-dataseed.binance.org",
-  "https://bsc-dataseed1.binance.org",
-  "https://bsc-dataseed2.binance.org",
-  "https://bsc-dataseed3.binance.org",
-  "https://bsc-dataseed4.binance.org",
-  "https://endpoints.omniatech.io/v1/bsc/mainnet/public",
-  "https://bsc.meowrpc.com"
-];
+import { 
+  PREDICTION_ABI, 
+  PREDICTION_ADDRESS,
+  BLOCKS_PER_QUERY,
+  QUERY_DELAY 
+} from './blockchain/constants';
+import { ProviderManager } from './blockchain/provider';
+import { EventCache } from './blockchain/eventCache';
 
 export class PredictionService {
   private provider: ethers.JsonRpcProvider;
   private contract: ethers.Contract;
   private interface: ethers.Interface;
-  private currentRpcIndex: number = 0;
+  private providerManager: ProviderManager;
+  private eventCache: EventCache;
   private lastRequestTime: number = 0;
-  private consecutiveFailures: number = 0;
   private maxRetries: number = 12;
-  private eventCache: Map<string, any> = new Map();
 
   constructor() {
-    this.provider = this.createProvider();
+    this.providerManager = new ProviderManager();
+    this.provider = this.providerManager.createProvider();
     this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
     this.interface = new ethers.Interface(PREDICTION_ABI);
-  }
-
-  private createProvider(): ethers.JsonRpcProvider {
-    const provider = new ethers.JsonRpcProvider(
-      RPC_ENDPOINTS[this.currentRpcIndex],
-      BSC_NETWORK,
-      {
-        staticNetwork: null,
-        batchMaxCount: 1,
-        polling: true,
-        pollingInterval: 15000,
-        cacheTimeout: -1, // Disable caching
-      }
-    );
-
-    provider.on("error", (error) => {
-      console.error("Provider error:", error);
-      this.switchToNextRpc();
-    });
-
-    return provider;
-  }
-
-  private async switchToNextRpc(): Promise<void> {
-    this.consecutiveFailures++;
-    const backoffDelay = Math.min(
-      RPC_SWITCH_DELAY * Math.pow(2, this.consecutiveFailures - 1),
-      45000
-    );
-    await new Promise(resolve => setTimeout(resolve, backoffDelay));
-    
-    this.currentRpcIndex = (this.currentRpcIndex + 1) % RPC_ENDPOINTS.length;
-    this.provider = this.createProvider();
-    this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
-    console.log(`Switched to RPC endpoint: ${RPC_ENDPOINTS[this.currentRpcIndex]}`);
+    this.eventCache = new EventCache();
   }
 
   private async throttleRequest(): Promise<void> {
@@ -96,7 +39,7 @@ export class PredictionService {
       try {
         await this.throttleRequest();
         const result = await operation();
-        this.consecutiveFailures = 0;
+        this.providerManager.resetFailures();
         return result;
       } catch (error: any) {
         console.error(`Operation attempt failed (${i + 1}/${this.maxRetries}):`, error);
@@ -116,7 +59,10 @@ export class PredictionService {
           error.message.includes('request failed');
         
         if (isNetworkError && i < this.maxRetries - 1) {
-          await this.switchToNextRpc();
+          this.provider = await this.providerManager.switchToNextRpc();
+          this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
+          // Add exponential backoff delay
+          await new Promise(resolve => setTimeout(resolve, Math.min(1000 * Math.pow(2, i), 10000)));
           continue;
         }
         throw error;
@@ -132,24 +78,26 @@ export class PredictionService {
     });
   }
 
-  async getRoundInfo(epoch: number) {
-    return await this.executeWithRetry(() => this.contract.rounds(epoch));
-  }
-
-  private getCacheKey(address: string, epoch: number): string {
-    return `${address.toLowerCase()}-${epoch}`;
-  }
-
   private async queryLogs(filter: any): Promise<ethers.Log[]> {
     return await this.executeWithRetry(async () => {
       const latestBlock = await this.provider.getBlockNumber();
       const fromBlock = Math.max(latestBlock - BLOCKS_PER_QUERY, 0);
       
-      const logs = await this.provider.getLogs({
-        ...filter,
-        fromBlock,
-        toBlock: latestBlock,
-      });
+      // Split the request into smaller chunks to avoid rate limits
+      const blockChunkSize = 100;
+      const logs: ethers.Log[] = [];
+      
+      for (let start = fromBlock; start <= latestBlock; start += blockChunkSize) {
+        const end = Math.min(start + blockChunkSize, latestBlock);
+        const chunkLogs = await this.provider.getLogs({
+          ...filter,
+          fromBlock: start,
+          toBlock: end,
+        });
+        logs.push(...chunkLogs);
+        // Add small delay between chunks
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
       
       return logs;
     });
@@ -185,13 +133,13 @@ export class PredictionService {
 
         const epoch = Number(parsedLog.args[1]);
         const amount = ethers.formatEther(parsedLog.args[2]);
-        const cacheKey = this.getCacheKey(address, epoch);
+        const cacheKey = this.eventCache.getCacheKey(address, epoch);
 
         if (this.eventCache.has(cacheKey)) {
           continue;
         }
 
-        this.eventCache.set(cacheKey, true);
+        this.eventCache.set(cacheKey);
 
         switch (parsedLog.name) {
           case 'BetBull':
@@ -216,9 +164,9 @@ export class PredictionService {
   onNewBet(address: string, callback: (bet: { type: 'bull' | 'bear', epoch: number, amount: string }) => void) {
     this.contract.on("BetBull", (sender: string, epoch: bigint, amount: bigint) => {
       if (sender.toLowerCase() === address.toLowerCase()) {
-        const cacheKey = this.getCacheKey(address, Number(epoch));
+        const cacheKey = this.eventCache.getCacheKey(address, Number(epoch));
         if (!this.eventCache.has(cacheKey)) {
-          this.eventCache.set(cacheKey, true);
+          this.eventCache.set(cacheKey);
           callback({
             type: 'bull',
             epoch: Number(epoch),
@@ -230,9 +178,9 @@ export class PredictionService {
 
     this.contract.on("BetBear", (sender: string, epoch: bigint, amount: bigint) => {
       if (sender.toLowerCase() === address.toLowerCase()) {
-        const cacheKey = this.getCacheKey(address, Number(epoch));
+        const cacheKey = this.eventCache.getCacheKey(address, Number(epoch));
         if (!this.eventCache.has(cacheKey)) {
-          this.eventCache.set(cacheKey, true);
+          this.eventCache.set(cacheKey);
           callback({
             type: 'bear',
             epoch: Number(epoch),
