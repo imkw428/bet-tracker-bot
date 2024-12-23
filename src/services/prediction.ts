@@ -9,12 +9,10 @@ const PREDICTION_ABI = [
 ];
 
 const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-const BLOCKS_PER_QUERY = 5; // Further reduced for better reliability
-const QUERY_DELAY = 8000; // Increased delay between requests
-const MAX_BLOCKS = 50; // Further reduced max blocks to query
+const BLOCKS_PER_QUERY = 5000;
+const QUERY_DELAY = 8000;
 const RPC_SWITCH_DELAY = 8000;
 
-// BSC Network Configuration
 const BSC_NETWORK = {
   name: 'bnb',
   chainId: 56,
@@ -22,7 +20,6 @@ const BSC_NETWORK = {
   ensNetwork: null
 };
 
-// Highly reliable and CORS-friendly public RPC endpoints
 const RPC_ENDPOINTS = [
   "https://bsc.publicnode.com",
   "https://1rpc.io/bnb",
@@ -38,6 +35,7 @@ export class PredictionService {
   private lastRequestTime: number = 0;
   private consecutiveFailures: number = 0;
   private maxRetries: number = 12;
+  private eventCache: Map<string, any> = new Map();
 
   constructor() {
     this.provider = this.createProvider();
@@ -53,7 +51,7 @@ export class PredictionService {
         staticNetwork: null,
         batchMaxCount: 1,
         polling: true,
-        pollingInterval: 15000, // Increased polling interval
+        pollingInterval: 15000,
       }
     );
     return provider;
@@ -61,19 +59,14 @@ export class PredictionService {
 
   private async switchToNextRpc(): Promise<void> {
     this.consecutiveFailures++;
-    
-    // Exponential backoff with maximum delay cap
     const backoffDelay = Math.min(
       RPC_SWITCH_DELAY * Math.pow(2, this.consecutiveFailures - 1),
-      45000 // Increased maximum delay
+      45000
     );
-    
     await new Promise(resolve => setTimeout(resolve, backoffDelay));
-    
     this.currentRpcIndex = (this.currentRpcIndex + 1) % RPC_ENDPOINTS.length;
     this.provider = this.createProvider();
     this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
-    
     console.log(`Switched to RPC endpoint: ${RPC_ENDPOINTS[this.currentRpcIndex]}`);
   }
 
@@ -114,7 +107,6 @@ export class PredictionService {
           await this.switchToNextRpc();
           continue;
         }
-        
         throw error;
       }
     }
@@ -132,49 +124,22 @@ export class PredictionService {
     return await this.executeWithRetry(() => this.contract.rounds(epoch));
   }
 
-  private async getBlockRanges(fromBlock: number, toBlock: number): Promise<Array<[number, number]>> {
-    const ranges: Array<[number, number]> = [];
-    const actualToBlock = Math.min(fromBlock + MAX_BLOCKS, toBlock);
-    
-    for (let start = fromBlock; start <= actualToBlock; start += BLOCKS_PER_QUERY) {
-      const end = Math.min(start + BLOCKS_PER_QUERY - 1, actualToBlock);
-      ranges.push([start, end]);
-      
-      // 在每個範圍之間添加小延遲
-      if (start + BLOCKS_PER_QUERY <= actualToBlock) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    }
-    return ranges;
+  private getCacheKey(address: string, epoch: number): string {
+    return `${address.toLowerCase()}-${epoch}`;
   }
 
-  private async queryLogsInBatches(filter: any): Promise<ethers.Log[]> {
+  private async queryLogs(filter: any): Promise<ethers.Log[]> {
     return await this.executeWithRetry(async () => {
-      try {
-        const latestBlock = await this.provider.getBlockNumber();
-        const fromBlock = latestBlock - MAX_BLOCKS;
-        const ranges = await this.getBlockRanges(fromBlock, latestBlock);
-        
-        const allLogs: ethers.Log[] = [];
-        for (const [start, end] of ranges) {
-          try {
-            await this.throttleRequest();
-            const logs = await this.provider.getLogs({
-              ...filter,
-              fromBlock: start,
-              toBlock: end,
-            });
-            allLogs.push(...logs);
-          } catch (error) {
-            console.error(`Error getting logs for range ${start}-${end}:`, error);
-            throw error;
-          }
-        }
-        return allLogs;
-      } catch (error) {
-        console.error('Error in queryLogsInBatches:', error);
-        throw error;
-      }
+      const latestBlock = await this.provider.getBlockNumber();
+      const fromBlock = latestBlock - BLOCKS_PER_QUERY;
+      
+      const logs = await this.provider.getLogs({
+        ...filter,
+        fromBlock,
+        toBlock: latestBlock,
+      });
+      
+      return logs;
     });
   }
 
@@ -192,7 +157,7 @@ export class PredictionService {
     };
 
     try {
-      const logs = await this.queryLogsInBatches(filters);
+      const logs = await this.queryLogs(filters);
       
       const bulls: { epoch: number; amount: string }[] = [];
       const bears: { epoch: number; amount: string }[] = [];
@@ -208,6 +173,15 @@ export class PredictionService {
 
         const epoch = Number(parsedLog.args[1]);
         const amount = ethers.formatEther(parsedLog.args[2]);
+        const cacheKey = this.getCacheKey(address, epoch);
+
+        // 檢查是否已經處理過這個事件
+        if (this.eventCache.has(cacheKey)) {
+          continue;
+        }
+
+        // 將事件加入快取
+        this.eventCache.set(cacheKey, true);
 
         switch (parsedLog.name) {
           case 'BetBull':
@@ -232,21 +206,29 @@ export class PredictionService {
   onNewBet(address: string, callback: (bet: { type: 'bull' | 'bear', epoch: number, amount: string }) => void) {
     this.contract.on("BetBull", (sender: string, epoch: bigint, amount: bigint) => {
       if (sender.toLowerCase() === address.toLowerCase()) {
-        callback({
-          type: 'bull',
-          epoch: Number(epoch),
-          amount: ethers.formatEther(amount),
-        });
+        const cacheKey = this.getCacheKey(address, Number(epoch));
+        if (!this.eventCache.has(cacheKey)) {
+          this.eventCache.set(cacheKey, true);
+          callback({
+            type: 'bull',
+            epoch: Number(epoch),
+            amount: ethers.formatEther(amount),
+          });
+        }
       }
     });
 
     this.contract.on("BetBear", (sender: string, epoch: bigint, amount: bigint) => {
       if (sender.toLowerCase() === address.toLowerCase()) {
-        callback({
-          type: 'bear',
-          epoch: Number(epoch),
-          amount: ethers.formatEther(amount),
-        });
+        const cacheKey = this.getCacheKey(address, Number(epoch));
+        if (!this.eventCache.has(cacheKey)) {
+          this.eventCache.set(cacheKey, true);
+          callback({
+            type: 'bear',
+            epoch: Number(epoch),
+            amount: ethers.formatEther(amount),
+          });
+        }
       }
     });
   }
