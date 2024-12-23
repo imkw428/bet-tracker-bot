@@ -8,7 +8,7 @@ export class ProviderService {
   private consecutiveErrors: number = 0;
   private requestCount: number = 0;
   private lastResetTime: number = Date.now();
-  private maxRequestsPerSecond: number = 30; // Reduced from 35
+  private maxRequestsPerSecond: number = 35;
 
   constructor() {
     this.provider = this.createProvider();
@@ -22,7 +22,7 @@ export class ProviderService {
       ensAddress: null
     });
     
-    provider.pollingInterval = 8000; // Increased from 6000
+    provider.pollingInterval = 6000;
     
     provider.on('error', (error) => {
       console.error('Provider error:', error);
@@ -49,7 +49,7 @@ export class ProviderService {
     if (this.requestCount >= this.maxRequestsPerSecond) {
       const timeUntilReset = 1000 - (Date.now() - this.lastResetTime);
       if (timeUntilReset > 0) {
-        await new Promise(resolve => setTimeout(resolve, timeUntilReset + 500)); // Added buffer
+        await new Promise(resolve => setTimeout(resolve, timeUntilReset));
       }
     }
 
@@ -57,8 +57,7 @@ export class ProviderService {
     const timeSinceLastRequest = now - this.lastRequestTime;
     
     if (timeSinceLastRequest < REQUEST_DELAY) {
-      const waitTime = REQUEST_DELAY + (this.consecutiveErrors * 500); // Increased backoff multiplier
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+      await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
     }
     
     this.lastRequestTime = Date.now();
@@ -89,6 +88,6 @@ export class ProviderService {
   }
 
   setPollingInterval(intensive: boolean) {
-    this.provider.pollingInterval = intensive ? 6000 : 10000; // Further increased intervals
+    this.provider.pollingInterval = intensive ? 6000 : 8000;
   }
 }

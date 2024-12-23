@@ -22,7 +22,7 @@ export class LogService {
   async queryLogsInBatches(address: string): Promise<WalletHistory> {
     const provider = await this.providerService.getProvider();
     const latestBlock = await provider.getBlockNumber();
-    const fromBlock = latestBlock - 200; // Further reduced from 300
+    const fromBlock = latestBlock - 300;
     const ranges = await this.getBlockRanges(fromBlock, latestBlock);
 
     const filter = {
@@ -43,7 +43,7 @@ export class LogService {
 
     for (const [start, end] of ranges) {
       try {
-        await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY * 3)); // Further increased delay
+        await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
         
         const logs = await provider.getLogs({
           ...filter,
@@ -76,7 +76,7 @@ export class LogService {
         }
       } catch (error) {
         console.error(`Error fetching logs for range ${start}-${end}:`, error);
-        await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY * 4)); // Increased error backoff
+        await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
         continue;
       }
     }
