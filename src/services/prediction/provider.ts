@@ -5,6 +5,7 @@ export class ProviderService {
   private provider: ethers.JsonRpcProvider;
   private lastRequestTime: number = 0;
   private pendingRequests: Map<string, Promise<any>> = new Map();
+  private consecutiveErrors: number = 0;
 
   constructor() {
     this.provider = this.createProvider();
@@ -21,6 +22,7 @@ export class ProviderService {
     
     provider.on('error', (error) => {
       console.error('Provider error:', error);
+      this.consecutiveErrors++;
       this.cleanup();
     });
 
@@ -37,7 +39,7 @@ export class ProviderService {
     const timeSinceLastRequest = now - this.lastRequestTime;
     
     if (timeSinceLastRequest < REQUEST_DELAY) {
-      const waitTime = REQUEST_DELAY - timeSinceLastRequest;
+      const waitTime = REQUEST_DELAY + (this.consecutiveErrors * 100); // Exponential backoff
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
     
@@ -49,6 +51,8 @@ export class ProviderService {
     if (network.chainId !== 56n) {
       throw new Error('Invalid chain ID');
     }
+    // Reset consecutive errors on successful connection
+    this.consecutiveErrors = 0;
   }
 
   async getProvider(): Promise<ethers.JsonRpcProvider> {
@@ -67,16 +71,7 @@ export class ProviderService {
   }
 
   setPollingInterval(intensive: boolean) {
-    this.provider.pollingInterval = intensive ? 2000 : 5000;
-  }
-
-  async isProviderHealthy(): Promise<boolean> {
-    try {
-      await this.waitForRateLimit();
-      await this.testConnection();
-      return true;
-    } catch {
-      return false;
-    }
+    // Increase polling intervals to reduce request frequency
+    this.provider.pollingInterval = intensive ? 3000 : 6000;
   }
 }

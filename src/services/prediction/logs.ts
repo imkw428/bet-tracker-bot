@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { BLOCKS_PER_QUERY, PREDICTION_ADDRESS } from './constants';
+import { BLOCKS_PER_QUERY, PREDICTION_ADDRESS, REQUEST_DELAY } from './constants';
 import { WalletHistory } from './types';
 import { ProviderService } from './provider';
 
@@ -11,7 +11,7 @@ export class LogService {
 
   private async getBlockRanges(fromBlock: number, toBlock: number): Promise<Array<[number, number]>> {
     const ranges: Array<[number, number]> = [];
-    const batchSize = Math.floor(BLOCKS_PER_QUERY / 2);
+    const batchSize = Math.floor(BLOCKS_PER_QUERY);
     for (let start = fromBlock; start <= toBlock; start += batchSize) {
       const end = Math.min(start + batchSize - 1, toBlock);
       ranges.push([start, end]);
@@ -22,7 +22,7 @@ export class LogService {
   async queryLogsInBatches(address: string): Promise<WalletHistory> {
     const provider = await this.providerService.getProvider();
     const latestBlock = await provider.getBlockNumber();
-    const fromBlock = latestBlock - 1000; // Reduced historical block range
+    const fromBlock = latestBlock - 500; // Reduced historical block range
     const ranges = await this.getBlockRanges(fromBlock, latestBlock);
 
     const filter = {
@@ -43,8 +43,8 @@ export class LogService {
 
     for (const [start, end] of ranges) {
       try {
-        // Add delay between batch requests
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Add longer delay between batch requests
+        await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
         
         const logs = await provider.getLogs({
           ...filter,
@@ -77,7 +77,8 @@ export class LogService {
         }
       } catch (error) {
         console.error(`Error fetching logs for range ${start}-${end}:`, error);
-        // Don't throw here, continue with next range
+        // Add exponential backoff on error
+        await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY * 2));
         continue;
       }
     }

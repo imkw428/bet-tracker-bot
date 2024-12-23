@@ -7,10 +7,10 @@ export const PREDICTION_ABI = [
 ];
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-export const BLOCKS_PER_QUERY = 25;
-export const REQUEST_DELAY = 3000;
-export const RATE_LIMIT_DELAY = 15000;
-export const MAX_RETRIES = 8;
+export const BLOCKS_PER_QUERY = 10; // Reduced from 25
+export const REQUEST_DELAY = 500; // Increased from 100
+export const RATE_LIMIT_DELAY = 30000; // Increased from 15000
+export const MAX_RETRIES = 3;
 
 export const RPC_ENDPOINTS = [
   "https://newest-quaint-needle.bsc.quiknode.pro/7af7a237cb588bf7328c258d9878a3c099c3356b"
