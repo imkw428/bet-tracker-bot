@@ -15,11 +15,33 @@ export class LogService {
     return ranges;
   }
 
+  private async retryOperation<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 3
+  ): Promise<T> {
+    let lastError;
+    
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY * (i + 1)));
+      }
+    }
+    
+    throw lastError;
+  }
+
   async queryLogsInBatches(address: string): Promise<WalletHistory> {
     const provider = await providerService.getProvider();
-    const latestBlock = await provider.getBlockNumber();
-    // 只查詢最近10個區塊，提高查詢效率
-    const fromBlock = latestBlock - 10;
+    
+    const latestBlock = await this.retryOperation(async () => {
+      return await provider.getBlockNumber();
+    });
+    
+    // 只查詢最近5個區塊，進一步減少負載
+    const fromBlock = latestBlock - 5;
     const ranges = await this.getBlockRanges(fromBlock, latestBlock);
 
     const filter = {
@@ -42,35 +64,38 @@ export class LogService {
 
     for (const [start, end] of ranges) {
       try {
-        const logs = await provider.getLogs({
-          ...filter,
-          fromBlock: start,
-          toBlock: end
+        const logs = await this.retryOperation(async () => {
+          return await provider.getLogs({
+            ...filter,
+            fromBlock: start,
+            toBlock: end
+          });
         });
 
-        for (const log of logs) {
-          const event = log.topics[0];
-          const epoch = Number(log.topics[2]);
-          const amount = ethers.formatEther(log.topics[3]);
-
-          if (event === ethers.id("BetBull(address,uint256,uint256)")) {
-            history.bulls.push({ epoch, amount });
-          } else if (event === ethers.id("BetBear(address,uint256,uint256)")) {
-            history.bears.push({ epoch, amount });
-          } else if (event === ethers.id("Claim(address,uint256,uint256)")) {
-            history.claims.push({ epoch, amount });
-          }
-        }
-
-        // 只在發現新記錄時才等待，否則立即進行下一次查詢
         if (logs.length > 0) {
+          console.log(`區塊 ${start}-${end} 發現 ${logs.length} 筆記錄`);
+          
+          for (const log of logs) {
+            const event = log.topics[0];
+            const epoch = Number(log.topics[2]);
+            const amount = ethers.formatEther(log.topics[3]);
+
+            if (event === ethers.id("BetBull(address,uint256,uint256)")) {
+              history.bulls.push({ epoch, amount });
+            } else if (event === ethers.id("BetBear(address,uint256,uint256)")) {
+              history.bears.push({ epoch, amount });
+            } else if (event === ethers.id("Claim(address,uint256,uint256)")) {
+              history.claims.push({ epoch, amount });
+            }
+          }
+          
+          // 只在找到記錄時等待，避免不必要的延遲
           await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
         }
-
       } catch (error) {
-        console.error(`查詢失敗，區塊範圍 ${start}-${end}`);
-        await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
-        continue;
+        console.error(`查詢區塊 ${start}-${end} 失敗:`, error);
+        // 遇到錯誤時切換節點
+        await providerService.getProvider();
       }
     }
 

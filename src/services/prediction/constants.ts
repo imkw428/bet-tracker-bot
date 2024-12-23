@@ -8,11 +8,11 @@ export const ABI = [
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
 
-// 每次查詢3個區塊
-export const BLOCKS_PER_QUERY = 3;
+// 每次查詢2個區塊
+export const BLOCKS_PER_QUERY = 2;
 
-// 查詢延遲設為8秒
-export const REQUEST_DELAY = 8000;
+// 基本查詢延遲設為10秒
+export const REQUEST_DELAY = 10000;
 
 // 使用 BNB Chain 官方節點
 export const RPC_ENDPOINTS = [

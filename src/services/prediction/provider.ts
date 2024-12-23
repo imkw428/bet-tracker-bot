@@ -5,6 +5,7 @@ export class ProviderService {
   private static instance: ProviderService;
   private providers: ethers.JsonRpcProvider[];
   private currentProviderIndex: number;
+  private lastProviderSwitch: number;
   private readonly rpcUrls = [
     'https://bsc-dataseed1.bnbchain.org',
     'https://bsc-dataseed2.bnbchain.org',
@@ -19,6 +20,7 @@ export class ProviderService {
       return provider;
     });
     this.currentProviderIndex = 0;
+    this.lastProviderSwitch = Date.now();
   }
 
   public static getInstance(): ProviderService {
@@ -33,32 +35,35 @@ export class ProviderService {
   }
 
   async getProvider(): Promise<ethers.JsonRpcProvider> {
+    const currentTime = Date.now();
+    const timeSinceLastSwitch = currentTime - this.lastProviderSwitch;
+    
+    // 如果距離上次切換時間不到30秒，等待一下
+    if (timeSinceLastSwitch < 30000) {
+      await this.delay(5000);
+    }
+
     const provider = this.providers[this.currentProviderIndex];
+    
     try {
+      // 測試提供者是否正常運作
       await provider.getBlockNumber();
       return provider;
     } catch (error) {
       console.log(`Provider ${this.currentProviderIndex} 失敗，切換中...`);
-      await this.delay(REQUEST_DELAY);
-      return this.switchProvider();
-    }
-  }
-
-  async switchProvider(): Promise<ethers.JsonRpcProvider> {
-    this.currentProviderIndex = (this.currentProviderIndex + 1) % this.providers.length;
-    const newProvider = this.providers[this.currentProviderIndex];
-    
-    try {
-      await newProvider.getBlockNumber();
-      console.log(`已切換到 provider ${this.currentProviderIndex}`);
-      return newProvider;
-    } catch (error) {
+      
+      // 更新最後切換時間
+      this.lastProviderSwitch = Date.now();
+      
+      // 切換到下一個提供者
+      this.currentProviderIndex = (this.currentProviderIndex + 1) % this.providers.length;
+      
+      // 如果已經輪詢完所有提供者，等待較長時間後重試
       if (this.currentProviderIndex === 0) {
         await this.delay(REQUEST_DELAY * 2);
-        throw new Error('所有 provider 都失敗了');
       }
-      await this.delay(REQUEST_DELAY);
-      return this.switchProvider();
+      
+      return this.getProvider();
     }
   }
 }
