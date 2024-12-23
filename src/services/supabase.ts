@@ -47,8 +47,35 @@ class SupabaseService {
     }
   }
 
+  async checkWalletExists(address: string): Promise<boolean> {
+    try {
+      const { data, error } = await this.client
+        .from('wallets')
+        .select('address')
+        .eq('address', address)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows returned
+        console.error('檢查錢包是否存在時發生錯誤:', error);
+        return false;
+      }
+
+      return !!data;
+    } catch (error) {
+      console.error('檢查錢包是否存在時發生錯誤:', error);
+      return false;
+    }
+  }
+
   async addWallet(address: string, note: string = ''): Promise<WalletData | null> {
     try {
+      // First check if wallet exists
+      const exists = await this.checkWalletExists(address);
+      if (exists) {
+        console.error('錢包地址已存在');
+        return null;
+      }
+
       const now = new Date().toISOString();
       const { data, error } = await this.client
         .from('wallets')
