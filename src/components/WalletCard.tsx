@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
+import { formatEther } from "ethers";
 import { Badge } from "@/components/ui/badge";
-import { WalletAnalytics } from "@/types/wallet";
 
 interface Bet {
   type: 'bull' | 'bear';
@@ -18,125 +18,77 @@ interface WalletCardProps {
   address: string;
   history: WalletHistory | null;
   recentBets: Bet[];
-  note: string;
-  analytics?: WalletAnalytics;
-  firstSeen: string;
 }
 
-export const WalletCard = ({ 
-  address, 
-  history, 
-  recentBets, 
-  note, 
-  analytics,
-  firstSeen 
-}: WalletCardProps) => {
+export const WalletCard = ({ address, history, recentBets }: WalletCardProps) => {
+  // 計算贏得的回合
   const winningEpochs = history?.claims.map(claim => claim.epoch) || [];
-  const hasHistory = history && (
-    history.bulls.length > 0 || 
-    history.bears.length > 0 || 
-    history.claims.length > 0
-  );
 
   return (
     <Card className="p-4">
+      <h2 className="text-xl font-bold mb-4">
+        錢包 {address.slice(0, 6)}...{address.slice(-4)}
+      </h2>
+
       <div className="space-y-4">
-        <div className="flex justify-between items-start">
-          <div className="space-y-1">
-            <h2 className="text-base font-bold">
-              {address.slice(0, 6)}...{address.slice(-4)}
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              首次出現: {firstSeen}
-            </p>
-            <Badge variant={hasHistory ? "default" : "secondary"} className="mt-1">
-              {hasHistory ? "舊錢包" : "新錢包"}
-            </Badge>
+        {/* 贏得的回合 */}
+        <div>
+          <h3 className="font-bold mb-2">贏得的回合</h3>
+          <div className="flex flex-wrap gap-2">
+            {winningEpochs.map((epoch) => (
+              <Badge key={epoch} variant="success" className="bg-win text-white">
+                回合 {epoch}
+              </Badge>
+            ))}
           </div>
-          {note && (
-            <span className="text-xs text-muted-foreground">{note}</span>
-          )}
         </div>
 
-        {analytics && (
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <div>
-              <div className="font-bold mb-1">一致性</div>
-              <div className={`${analytics.consistency > 0.7 ? 'text-win' : 'text-neutral'}`}>
-                {(analytics.consistency * 100).toFixed(1)}%
+        {/* 最近下注 */}
+        <div>
+          <h3 className="font-bold mb-2">最近下注</h3>
+          <div className="space-y-2">
+            {recentBets.map((bet, i) => (
+              <div
+                key={`${bet.epoch}-${i}`}
+                className={`p-2 rounded ${
+                  bet.type === 'bull' ? 'bg-win/10 text-win' : 'bg-loss/10 text-loss'
+                }`}
+              >
+                {bet.type === 'bull' ? '看漲' : '看跌'} - {bet.amount} BNB (回合 {bet.epoch})
               </div>
-            </div>
-            <div>
-              <div className="font-bold mb-1">盈利能力</div>
-              <div className={`${analytics.profitability > 0 ? 'text-win' : 'text-loss'}`}>
-                {analytics.profitability.toFixed(3)} BNB
-              </div>
-            </div>
-            <div>
-              <div className="font-bold mb-1">活跃度</div>
-              <div className={`${analytics.activityScore > 0.5 ? 'text-win' : 'text-neutral'}`}>
-                {(analytics.activityScore * 100).toFixed(1)}%
-              </div>
-            </div>
+            ))}
           </div>
-        )}
+        </div>
 
-        {winningEpochs.length > 0 && (
-          <div>
-            <h3 className="text-sm font-bold mb-2">贏得的回合</h3>
-            <div className="flex flex-wrap gap-1">
-              {winningEpochs.slice(-3).map((epoch) => (
-                <Badge key={epoch} variant="default" className="bg-win text-white text-xs">
-                  {epoch}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {recentBets.length > 0 && (
-          <div>
-            <h3 className="text-sm font-bold mb-2">最新下注</h3>
-            <div className="space-y-1">
-              {recentBets.map((bet, i) => (
-                <div
-                  key={`${bet.epoch}-${i}`}
-                  className={`text-xs p-1.5 rounded ${
-                    bet.type === 'bull' ? 'bg-win/10 text-win' : 'bg-loss/10 text-loss'
-                  }`}
-                >
-                  {bet.type === 'bull' ? '看漲' : '看跌'} - {bet.amount} BNB (回合 {bet.epoch})
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
+        {/* 歷史記錄 */}
         {history && (
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <div>
-              <div className="font-bold text-win mb-1">看漲</div>
-              {history.bulls.slice(-2).map((bet, i) => (
-                <div key={i}>
-                  {bet.amount} BNB
-                </div>
-              ))}
-            </div>
-            <div>
-              <div className="font-bold text-loss mb-1">看跌</div>
-              {history.bears.slice(-2).map((bet, i) => (
-                <div key={i}>
-                  {bet.amount} BNB
-                </div>
-              ))}
-            </div>
-            <div>
-              <div className="font-bold text-neutral mb-1">獲勝</div>
-              {history.claims.slice(-2).map((claim, i) => (
-                <div key={i}>
-                  {claim.amount} BNB
-                </div>
-              ))}
+          <div>
+            <h3 className="font-bold mb-2">歷史記錄</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <h4 className="font-bold text-win mb-2">看漲下注</h4>
+                {history.bulls.map((bet, i) => (
+                  <div key={i} className="text-sm">
+                    回合 {bet.epoch}: {bet.amount} BNB
+                  </div>
+                ))}
+              </div>
+              <div>
+                <h4 className="font-bold text-loss mb-2">看跌下注</h4>
+                {history.bears.map((bet, i) => (
+                  <div key={i} className="text-sm">
+                    回合 {bet.epoch}: {bet.amount} BNB
+                  </div>
+                ))}
+              </div>
+              <div>
+                <h4 className="font-bold text-neutral mb-2">獲勝領取</h4>
+                {history.claims.map((claim, i) => (
+                  <div key={i} className="text-sm">
+                    回合 {claim.epoch}: {claim.amount} BNB
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
