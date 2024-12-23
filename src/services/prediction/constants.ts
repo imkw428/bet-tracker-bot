@@ -8,9 +8,11 @@ export const ABI = [
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
 
-export const BLOCKS_PER_QUERY = 25;
+// Reduce batch size from 25 to 10 blocks per query
+export const BLOCKS_PER_QUERY = 10;
 
-export const REQUEST_DELAY = 6000;
+// Increase delay between requests
+export const REQUEST_DELAY = 12000;
 
 export const RPC_ENDPOINTS = [
   "https://bsc-dataseed.binance.org",
