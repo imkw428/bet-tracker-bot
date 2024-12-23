@@ -36,6 +36,7 @@ export const WalletMonitor = () => {
   const [notificationSound] = useState(new Audio('/notification.mp3'));
   const [isSoundEnabled, setSoundEnabled] = useState(true);
   const predictionServiceRef = useRef<PredictionService>();
+  const cleanupFnsRef = useRef<(() => void)[]>([]);
 
   useEffect(() => {
     const loadWallets = async () => {
@@ -59,7 +60,6 @@ export const WalletMonitor = () => {
     loadWallets();
   }, []);
 
-  // Start Dune tracking when monitoring starts
   useEffect(() => {
     if (monitoring) {
       duneService.startTracking();
@@ -83,14 +83,11 @@ export const WalletMonitor = () => {
         const timeUntilNext = await predictionService.getTimeUntilNextRound();
         const shouldIntensivePolling = timeUntilNext <= 30000 && timeUntilNext > 0;
         
-        // 根據時間設定輪詢間隔
         predictionService.setPollingInterval(shouldIntensivePolling);
         
-        // 更新當前回合
         const epoch = await predictionService.getCurrentEpoch();
         setCurrentEpoch(Number(epoch));
 
-        // 更新錢包歷史記錄
         for (const wallet of wallets) {
           const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
           setWallets(prevWallets =>
@@ -103,47 +100,59 @@ export const WalletMonitor = () => {
           );
         }
 
-        // 根據時間設定下次檢查的延遲
         const nextCheckDelay = shouldIntensivePolling ? 1000 : 3000;
         interval = setTimeout(checkRoundTiming, nextCheckDelay);
       } catch (error) {
         console.error('更新資料時發生錯誤:', error);
-        interval = setTimeout(checkRoundTiming, 3000); // 發生錯誤時3秒後重試
+        interval = setTimeout(checkRoundTiming, 3000);
       }
     };
 
-    // 開始監控
     checkRoundTiming();
 
-    // 設置下注監聽器
-    const cleanupFns = wallets.map(wallet => {
-      return predictionService.onNewBet(wallet.address, (bet) => {
-        if (isSoundEnabled) {
-          notificationSound.play().catch(console.error);
-        }
+    const setupWalletListeners = async () => {
+      // Clean up any existing listeners
+      cleanupFnsRef.current.forEach(cleanup => cleanup());
+      cleanupFnsRef.current = [];
 
-        setWallets(prevWallets => 
-          prevWallets.map(w => {
-            if (w.address === wallet.address) {
-              return {
-                ...w,
-                recentBets: [bet]
-              };
-            }
-            return w;
-          })
-        );
+      // Set up new listeners
+      const cleanupPromises = wallets.map(async wallet => {
+        const cleanup = await predictionService.onNewBet(wallet.address, (bet) => {
+          if (isSoundEnabled) {
+            notificationSound.play().catch(console.error);
+          }
 
-        toast({
-          title: `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)} 新的${bet.type === 'bull' ? '看漲' : '看跌'}下注!`,
-          description: `金額: ${bet.amount} BNB，回合: ${bet.epoch}`,
+          setWallets(prevWallets => 
+            prevWallets.map(w => {
+              if (w.address === wallet.address) {
+                return {
+                  ...w,
+                  recentBets: [bet]
+                };
+              }
+              return w;
+            })
+          );
+
+          toast({
+            title: `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)} 新的${bet.type === 'bull' ? '看漲' : '看跌'}下注!`,
+            description: `金額: ${bet.amount} BNB，回合: ${bet.epoch}`,
+          });
         });
+        return cleanup;
       });
-    });
+
+      // Store the cleanup functions
+      const cleanupFns = await Promise.all(cleanupPromises);
+      cleanupFnsRef.current = cleanupFns;
+    };
+
+    setupWalletListeners();
 
     return () => {
       clearTimeout(interval);
-      cleanupFns.forEach(cleanup => cleanup && cleanup());
+      cleanupFnsRef.current.forEach(cleanup => cleanup());
+      cleanupFnsRef.current = [];
     };
   }, [monitoring, wallets, toast, isSoundEnabled, notificationSound]);
 
