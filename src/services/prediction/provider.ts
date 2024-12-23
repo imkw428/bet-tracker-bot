@@ -8,6 +8,7 @@ export class ProviderService {
   private consecutiveErrors: number = 0;
   private requestCount: number = 0;
   private lastResetTime: number = Date.now();
+  private maxRequestsPerSecond: number = 30; // Reduced from 35
 
   constructor() {
     this.provider = this.createProvider();
@@ -21,7 +22,7 @@ export class ProviderService {
       ensAddress: null
     });
     
-    provider.pollingInterval = 6000;
+    provider.pollingInterval = 8000; // Increased from 6000
     
     provider.on('error', (error) => {
       console.error('Provider error:', error);
@@ -41,15 +42,14 @@ export class ProviderService {
     setInterval(() => {
       this.requestCount = 0;
       this.lastResetTime = Date.now();
-    }, 1000); // Reset counter every second
+    }, 1000);
   }
 
   private async waitForRateLimit() {
-    // Check if we're approaching rate limit
-    if (this.requestCount >= 35) { // Buffer below the 40/s limit
+    if (this.requestCount >= this.maxRequestsPerSecond) {
       const timeUntilReset = 1000 - (Date.now() - this.lastResetTime);
       if (timeUntilReset > 0) {
-        await new Promise(resolve => setTimeout(resolve, timeUntilReset));
+        await new Promise(resolve => setTimeout(resolve, timeUntilReset + 500)); // Added buffer
       }
     }
 
@@ -57,7 +57,7 @@ export class ProviderService {
     const timeSinceLastRequest = now - this.lastRequestTime;
     
     if (timeSinceLastRequest < REQUEST_DELAY) {
-      const waitTime = REQUEST_DELAY + (this.consecutiveErrors * 200); // Increased backoff multiplier
+      const waitTime = REQUEST_DELAY + (this.consecutiveErrors * 500); // Increased backoff multiplier
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
     
@@ -89,7 +89,6 @@ export class ProviderService {
   }
 
   setPollingInterval(intensive: boolean) {
-    // Further increased polling intervals
-    this.provider.pollingInterval = intensive ? 4000 : 8000;
+    this.provider.pollingInterval = intensive ? 6000 : 10000; // Further increased intervals
   }
 }
