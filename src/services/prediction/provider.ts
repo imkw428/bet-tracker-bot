@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { RPC_ENDPOINTS, REQUEST_DELAY, RATE_LIMIT_DELAY, MAX_RETRIES } from './constants';
+import { RPC_ENDPOINTS, REQUEST_DELAY } from './constants';
 
 export class ProviderService {
   private provider: ethers.JsonRpcProvider;
@@ -14,13 +14,11 @@ export class ProviderService {
     const provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[0], {
       chainId: 56,
       name: 'bnb',
-      ensAddress: null,
-      staticNetwork: true // Optimize for static network
+      ensAddress: null
     });
     
     provider.pollingInterval = 5000;
     
-    // Add error handler
     provider.on('error', (error) => {
       console.error('Provider error:', error);
       this.cleanup();
@@ -30,7 +28,6 @@ export class ProviderService {
   }
 
   private cleanup() {
-    // Clear pending requests
     this.pendingRequests.clear();
     this.lastRequestTime = 0;
   }

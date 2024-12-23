@@ -37,12 +37,16 @@ export class PredictionService {
         console.error(`Operation failed (retry ${retryCount + 1}/${maxRetries}):`, error);
         
         if (retryCount === maxRetries - 1) {
-          throw new Error('All RPC nodes failed to connect');
+          throw new Error('Maximum retry attempts exceeded');
         }
         
-        const newProvider = await this.provider.switchToNextRpc();
-        this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, newProvider);
+        // Recreate the provider and contract
+        const provider = await this.provider.getProvider();
+        this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, provider);
         retryCount++;
+        
+        // Add delay between retries
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
       }
     }
 
