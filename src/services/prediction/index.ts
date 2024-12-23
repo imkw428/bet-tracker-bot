@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { ABI, PREDICTION_ADDRESS } from './constants';
+import { PREDICTION_ABI, PREDICTION_ADDRESS } from './constants';
 import { ProviderService } from './provider';
 import { LogService } from './logs';
 import { BetEvent, RoundInfo } from './types';
@@ -7,66 +7,62 @@ import { toast } from "@/components/ui/use-toast";
 
 export class PredictionService {
   private provider: ProviderService;
-  private contract: ethers.Contract | null;
+  private contract: ethers.Contract;
   private interface: ethers.Interface;
   private logService: LogService;
 
   constructor() {
-    this.provider = ProviderService.getInstance();
-    this.interface = new ethers.Interface(ABI);
-    this.contract = null;
-    this.logService = new LogService();
+    this.provider = new ProviderService();
+    this.interface = new ethers.Interface(PREDICTION_ABI);
     this.initializeContract();
+    this.logService = new LogService(this.provider, this.interface);
   }
 
   private async initializeContract() {
-    try {
-      const provider = await this.provider.getProvider();
-      this.contract = new ethers.Contract(
-        PREDICTION_ADDRESS,
-        ABI,
-        provider
-      );
-    } catch (error) {
-      console.error('Failed to initialize contract:', error);
-      this.contract = null;
-    }
+    const provider = await this.provider.getProvider();
+    this.contract = new ethers.Contract(
+      PREDICTION_ADDRESS,
+      PREDICTION_ABI,
+      provider
+    );
   }
 
-  private async ensureContract() {
-    if (!this.contract) {
-      await this.initializeContract();
-      if (!this.contract) {
-        throw new Error('Contract initialization failed');
-      }
-    }
-    return this.contract;
-  }
+  private async executeWithRetry<T>(operation: () => Promise<T>, retryCount = 0): Promise<T> {
+    const maxRetries = 5;
+    const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 10000);
 
-  // 註解掉重試邏輯
-  private async executeWithRetry<T>(operation: () => Promise<T>): Promise<T> {
     try {
-      const contract = await this.ensureContract();
       return await operation();
     } catch (error) {
-      console.error('Operation failed:', error);
-      throw error;
+      console.error(`Operation failed (retry ${retryCount + 1}/${maxRetries}):`, error);
+      
+      if (retryCount >= maxRetries) {
+        toast({
+          title: "連接錯誤",
+          description: "無法連接到區塊鏈網絡，請稍後再試",
+          variant: "destructive",
+        });
+        throw new Error('Maximum retry attempts exceeded');
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      
+      const newProvider = await this.provider.switchToNextRpc();
+      this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, newProvider);
+      
+      return this.executeWithRetry(operation, retryCount + 1);
     }
   }
 
   async getCurrentEpoch(): Promise<number> {
     return this.executeWithRetry(async () => {
-      const contract = await this.ensureContract();
-      const epoch = await contract.currentEpoch();
+      const epoch = await this.contract.currentEpoch();
       return Number(epoch);
     });
   }
 
   async getRoundInfo(epoch: number): Promise<RoundInfo> {
-    return this.executeWithRetry(async () => {
-      const contract = await this.ensureContract();
-      return contract.rounds(epoch);
-    });
+    return this.executeWithRetry(() => this.contract.rounds(epoch));
   }
 
   async getTimeUntilNextRound(): Promise<number> {
@@ -81,50 +77,38 @@ export class PredictionService {
   }
 
   onNewBet(address: string, callback: (bet: BetEvent) => void) {
-    const setupListeners = async () => {
-      try {
-        const contract = await this.ensureContract();
-        
-        contract.on("BetBull", (sender: string, epoch: bigint, amount: bigint) => {
-          if (sender.toLowerCase() === address.toLowerCase()) {
-            callback({
-              type: 'bull',
-              epoch: Number(epoch),
-              amount: ethers.formatEther(amount),
-            });
-          }
-        });
+    const setupListeners = () => {
+      this.contract.on("BetBull", (sender: string, epoch: bigint, amount: bigint) => {
+        if (sender.toLowerCase() === address.toLowerCase()) {
+          callback({
+            type: 'bull',
+            epoch: Number(epoch),
+            amount: ethers.formatEther(amount),
+          });
+        }
+      });
 
-        contract.on("BetBear", (sender: string, epoch: bigint, amount: bigint) => {
-          if (sender.toLowerCase() === address.toLowerCase()) {
-            callback({
-              type: 'bear',
-              epoch: Number(epoch),
-              amount: ethers.formatEther(amount),
-            });
-          }
-        });
-
-        return () => {
-          contract.removeAllListeners("BetBull");
-          contract.removeAllListeners("BetBear");
-        };
-      } catch (error) {
-        console.error('Failed to setup bet listeners:', error);
-        return () => {};
-      }
+      this.contract.on("BetBear", (sender: string, epoch: bigint, amount: bigint) => {
+        if (sender.toLowerCase() === address.toLowerCase()) {
+          callback({
+            type: 'bear',
+            epoch: Number(epoch),
+            amount: ethers.formatEther(amount),
+          });
+        }
+      });
     };
 
-    let cleanup: (() => void) | undefined;
-    setupListeners().then(cleanupFn => {
-      cleanup = cleanupFn;
-    });
+    setupListeners();
 
     return () => {
-      if (cleanup) {
-        cleanup();
-      }
+      this.contract.removeAllListeners("BetBull");
+      this.contract.removeAllListeners("BetBear");
     };
+  }
+
+  setPollingInterval(intensive: boolean) {
+    this.provider.setPollingInterval(intensive);
   }
 }
 

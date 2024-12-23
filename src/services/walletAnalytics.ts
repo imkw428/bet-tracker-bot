@@ -1,49 +1,101 @@
-import { WalletAnalytics } from "@/types/wallet";
-import { ethers } from "ethers";
+import { WalletActivity, WalletAnalytics } from '../types/wallet';
 
 export class WalletAnalyticsService {
-  calculateAnalytics(history: any): WalletAnalytics {
-    if (!history) {
+  private activities: Map<string, WalletActivity> = new Map();
+
+  updateWalletActivity(address: string, isPresent: boolean): void {
+    const now = new Date();
+    let activity = this.activities.get(address);
+
+    if (isPresent) {
+      if (!activity) {
+        activity = {
+          address,
+          firstSeen: now,
+          lastSeen: now,
+          isActive: true,
+          totalActiveTime: 0,
+          activePeriods: [{ start: now, end: now }]
+        };
+        this.activities.set(address, activity);
+      } else {
+        activity.lastSeen = now;
+        if (!activity.isActive) {
+          activity.isActive = true;
+          activity.activePeriods.push({ start: now, end: now });
+        }
+      }
+    } else if (activity?.isActive) {
+      activity.isActive = false;
+      const lastPeriod = activity.activePeriods[activity.activePeriods.length - 1];
+      lastPeriod.end = now;
+      
+      // 计算总活跃时间
+      activity.totalActiveTime = activity.activePeriods.reduce((total, period) => {
+        const duration = (period.end.getTime() - period.start.getTime()) / (1000 * 60);
+        return total + duration;
+      }, 0);
+    }
+  }
+
+  updateWalletStats(address: string, betResult: {
+    won: boolean;
+    amount: number;
+  }): void {
+    const activity = this.activities.get(address);
+    if (!activity) return;
+
+    activity.totalBets = (activity.totalBets || 0) + 1;
+    if (betResult.won) {
+      activity.winRate = ((activity.winRate || 0) * (activity.totalBets - 1) + 1) / activity.totalBets;
+    } else {
+      activity.winRate = ((activity.winRate || 0) * (activity.totalBets - 1)) / activity.totalBets;
+    }
+
+    // 更新平均下注金额
+    activity.averageBetSize = activity.averageBetSize 
+      ? (activity.averageBetSize * (activity.totalBets - 1) + betResult.amount) / activity.totalBets
+      : betResult.amount;
+  }
+
+  analyzeWallet(address: string): WalletAnalytics {
+    const activity = this.activities.get(address);
+    if (!activity) {
       return {
-        totalBets: 0,
-        winRate: 0,
-        profit: 0,
-        roi: 0
+        address,
+        consistency: 0,
+        profitability: 0,
+        activityScore: 0
       };
     }
 
-    // 計算總下注金額
-    const totalBullAmount = history.bulls.reduce((sum: number, bet: any) => 
-      sum + Number(bet.amount), 0
-    );
-    const totalBearAmount = history.bears.reduce((sum: number, bet: any) => 
-      sum + Number(bet.amount), 0
-    );
-    const totalBets = totalBullAmount + totalBearAmount;
+    // 计算一致性分数 (基于活跃时间模式)
+    const consistency = Math.min(activity.totalActiveTime / (24 * 60), 1); // 最多计算24小时
 
-    // 計算總獲勝次數和獲利
-    const winningEpochs = new Set(history.claims.map((claim: any) => claim.epoch));
-    const totalWins = history.bulls.filter((bet: any) => winningEpochs.has(bet.epoch)).length +
-                     history.bears.filter((bet: any) => winningEpochs.has(bet.epoch)).length;
-    
-    const totalGames = history.bulls.length + history.bears.length;
-    const winRate = totalGames > 0 ? (totalWins / totalGames) * 100 : 0;
+    // 计算盈利能力 (基于胜率和平均下注)
+    const profitability = activity.winRate 
+      ? (activity.winRate - 0.5) * (activity.averageBetSize || 0) * (activity.totalBets || 0)
+      : 0;
 
-    // 計算總收益
-    const totalClaims = history.claims.reduce((sum: number, claim: any) => 
-      sum + Number(claim.amount), 0
-    );
-    const profit = totalClaims - totalBets;
-
-    // 計算 ROI
-    const roi = totalBets > 0 ? (profit / totalBets) * 100 : 0;
+    // 计算活跃度分数
+    const activityScore = activity.activePeriods.length > 1 
+      ? Math.min(activity.activePeriods.length / 10, 1) // 最多计算10个活跃周期
+      : 0;
 
     return {
-      totalBets: Number(totalBets.toFixed(3)),
-      winRate: Number(winRate.toFixed(2)),
-      profit: Number(profit.toFixed(3)),
-      roi: Number(roi.toFixed(2))
+      address,
+      consistency,
+      profitability,
+      activityScore
     };
+  }
+
+  getWalletActivity(address: string): WalletActivity | null {
+    return this.activities.get(address) || null;
+  }
+
+  getAllActivities(): WalletActivity[] {
+    return Array.from(this.activities.values());
   }
 }
 

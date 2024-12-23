@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { PredictionService } from '@/services/prediction';
+import { duneService } from '@/services/dune';
 import { useToast } from "@/components/ui/use-toast";
 import { WalletData } from '../types';
-import { supabaseService } from '@/services/supabase';
 
 export const useWalletMonitoring = (
   wallets: WalletData[],
@@ -12,105 +12,48 @@ export const useWalletMonitoring = (
 ) => {
   const { toast } = useToast();
   const [currentEpoch, setCurrentEpoch] = useState<number | null>(null);
-  const [roundResults, setRoundResults] = useState<Record<number, 'bull' | 'bear'>>({});
-  const predictionServiceRef = useRef<PredictionService | null>(null);
-  const lastUpdateRef = useRef<number>(0);
-  const updateIntervalRef = useRef<NodeJS.Timeout>();
+  const predictionServiceRef = useRef<PredictionService>();
 
   useEffect(() => {
-    predictionServiceRef.current = new PredictionService();
+    if (!predictionServiceRef.current) return;
 
-    const updateWalletData = async () => {
-      const now = Date.now();
-      if (now - lastUpdateRef.current < 5 * 60 * 1000) {
-        return;
-      }
-      
+    let interval: NodeJS.Timeout;
+    const predictionService = predictionServiceRef.current;
+
+    const checkRoundTiming = async () => {
       try {
-        const latestWallets = await supabaseService.getWallets();
+        const timeUntilNext = await predictionService.getTimeUntilNextRound();
+        const shouldIntensivePolling = timeUntilNext <= 30000 && timeUntilNext > 0;
         
-        if (!predictionServiceRef.current) return;
+        predictionService.setPollingInterval(shouldIntensivePolling);
         
-        const updatedWallets = await Promise.all(
-          latestWallets.map(async (wallet) => {
-            const history = await predictionServiceRef.current!.getWalletHistory(wallet.address, 0, 0);
-            
-            return {
-              address: wallet.address,
-              note: wallet.note || '',
-              history,
-              recentBets: [],
-              created_at: wallet.created_at || new Date().toISOString(),
-            } as WalletData;
-          })
-        );
-
-        setWallets(updatedWallets);
-        lastUpdateRef.current = now;
-        
-        toast({
-          title: "錢包資料已更新",
-          description: `已更新 ${updatedWallets.length} 個錢包的資料`,
-        });
-      } catch (error) {
-        console.error('更新錢包資料時發生錯誤:', error);
-        toast({
-          title: "更新失敗",
-          description: "更新錢包資料時發生錯誤",
-          variant: "destructive",
-        });
-      }
-    };
-
-    const fetchData = async () => {
-      if (!predictionServiceRef.current) return;
-      
-      try {
-        const epoch = await predictionServiceRef.current.getCurrentEpoch();
+        const epoch = await predictionService.getCurrentEpoch();
         setCurrentEpoch(Number(epoch));
 
-        for (let i = 0; i < 5; i++) {
-          const roundEpoch = Number(epoch) - i;
-          const roundInfo = await predictionServiceRef.current.getRoundInfo(roundEpoch);
-          
-          if (roundInfo && roundInfo.closePrice && roundInfo.lockPrice) {
-            const result = roundInfo.closePrice > roundInfo.lockPrice ? 'bull' : 'bear';
-            setRoundResults(prev => ({ ...prev, [roundEpoch]: result }));
-          }
+        for (const wallet of wallets) {
+          const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
+          setWallets(prevWallets =>
+            prevWallets.map(w => {
+              if (w.address === wallet.address) {
+                return { ...w, history };
+              }
+              return w;
+            })
+          );
         }
 
-        await updateWalletData();
+        const nextCheckDelay = shouldIntensivePolling ? 1000 : 3000;
+        interval = setTimeout(checkRoundTiming, nextCheckDelay);
       } catch (error) {
         console.error('更新資料時發生錯誤:', error);
+        interval = setTimeout(checkRoundTiming, 3000);
       }
     };
 
-    const checkAndScheduleNextUpdate = async () => {
-      if (!predictionServiceRef.current) return;
-      
-      try {
-        const timeUntilNextRound = await predictionServiceRef.current.getTimeUntilNextRound();
-        console.log('距離下一回合還有（毫秒）:', timeUntilNextRound);
-        
-        updateIntervalRef.current = setTimeout(async () => {
-          console.log('開始更新新回合資料');
-          await fetchData();
-          checkAndScheduleNextUpdate();
-        }, timeUntilNextRound);
-
-      } catch (error) {
-        console.error('檢查下一回合時間時發生錯誤:', error);
-        updateIntervalRef.current = setTimeout(checkAndScheduleNextUpdate, 120000);
-      }
-    };
-
-    fetchData();
-    checkAndScheduleNextUpdate();
+    checkRoundTiming();
 
     const cleanupFns = wallets.map(wallet => {
-      if (!predictionServiceRef.current) return undefined;
-      
-      return predictionServiceRef.current.onNewBet(wallet.address, (bet) => {
+      return predictionService.onNewBet(wallet.address, (bet) => {
         if (isSoundEnabled) {
           notificationSound.play().catch(console.error);
         }
@@ -135,13 +78,10 @@ export const useWalletMonitoring = (
     });
 
     return () => {
-      if (updateIntervalRef.current) {
-        clearTimeout(updateIntervalRef.current);
-      }
+      clearTimeout(interval);
       cleanupFns.forEach(cleanup => cleanup && cleanup());
-      predictionServiceRef.current = null;
     };
-  }, [wallets, toast, isSoundEnabled, notificationSound, setWallets]);
+  }, [wallets, toast, isSoundEnabled, notificationSound]);
 
-  return { currentEpoch, predictionServiceRef, roundResults };
+  return { currentEpoch, predictionServiceRef };
 };
