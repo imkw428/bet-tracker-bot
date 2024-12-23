@@ -5,11 +5,11 @@ export class ProviderService {
   private providers: ethers.JsonRpcProvider[];
   private currentProviderIndex: number;
   private readonly rpcUrls = [
-    'https://bsc.getblock.io/mainnet/?api_key=null',
-    'https://bsc.blockpi.network/v1/rpc/public',
-    'https://1rpc.io/bnb',
-    'https://bsc.rpc.blxrbdn.com',
-    'https://bsc.drpc.org'
+    'https://bsc-dataseed1.binance.org:443',
+    'https://bsc-dataseed2.binance.org:443',
+    'https://bsc-dataseed3.binance.org:443',
+    'https://bsc-dataseed4.binance.org:443',
+    'https://bsc-dataseed-failover.binance.org:443'
   ];
 
   private constructor() {
