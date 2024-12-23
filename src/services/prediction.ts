@@ -9,10 +9,10 @@ const PREDICTION_ABI = [
 ];
 
 const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-const BLOCKS_PER_QUERY = 10; // Reduced for better reliability
-const QUERY_DELAY = 6000; // Increased delay between requests
-const MAX_BLOCKS = 100; // Reduced max blocks to query
-const RPC_SWITCH_DELAY = 6000;
+const BLOCKS_PER_QUERY = 5; // Further reduced for better reliability
+const QUERY_DELAY = 8000; // Increased delay between requests
+const MAX_BLOCKS = 50; // Further reduced max blocks to query
+const RPC_SWITCH_DELAY = 8000;
 
 // BSC Network Configuration
 const BSC_NETWORK = {
@@ -22,13 +22,12 @@ const BSC_NETWORK = {
   ensNetwork: null
 };
 
-// Only CORS-friendly public RPC endpoints
+// Highly reliable and CORS-friendly public RPC endpoints
 const RPC_ENDPOINTS = [
   "https://bsc.publicnode.com",
   "https://1rpc.io/bnb",
   "https://bsc.meowrpc.com",
-  "https://binance.llamarpc.com",
-  "https://bsc-mainnet.public.blastapi.io",
+  "https://binance.llamarpc.com"
 ];
 
 export class PredictionService {
@@ -38,7 +37,7 @@ export class PredictionService {
   private currentRpcIndex: number = 0;
   private lastRequestTime: number = 0;
   private consecutiveFailures: number = 0;
-  private maxRetries: number = 10;
+  private maxRetries: number = 12;
 
   constructor() {
     this.provider = this.createProvider();
@@ -54,7 +53,7 @@ export class PredictionService {
         staticNetwork: null,
         batchMaxCount: 1,
         polling: true,
-        pollingInterval: 12000,
+        pollingInterval: 15000, // Increased polling interval
       }
     );
     return provider;
@@ -66,7 +65,7 @@ export class PredictionService {
     // Exponential backoff with maximum delay cap
     const backoffDelay = Math.min(
       RPC_SWITCH_DELAY * Math.pow(2, this.consecutiveFailures - 1),
-      30000
+      45000 // Increased maximum delay
     );
     
     await new Promise(resolve => setTimeout(resolve, backoffDelay));
@@ -101,12 +100,15 @@ export class PredictionService {
           error.code === 'NETWORK_ERROR' ||
           error.code === 'TIMEOUT' ||
           error.code === 'SERVER_ERROR' ||
+          error.code === 'CALL_EXCEPTION' ||
           error.message.includes('failed to meet quorum') ||
           error.message.includes('Failed to fetch') ||
           error.message.includes('failed to get payload') ||
           error.message.includes('connection error') ||
           error.message.includes('network error') ||
-          error.message.includes('timeout');
+          error.message.includes('timeout') ||
+          error.message.includes('request failed') ||
+          error.message.includes('too many requests');
         
         if (isNetworkError && i < this.maxRetries - 1) {
           await this.switchToNextRpc();
