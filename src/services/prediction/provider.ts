@@ -6,9 +6,12 @@ export class ProviderService {
   private lastRequestTime: number = 0;
   private pendingRequests: Map<string, Promise<any>> = new Map();
   private consecutiveErrors: number = 0;
+  private requestCount: number = 0;
+  private lastResetTime: number = Date.now();
 
   constructor() {
     this.provider = this.createProvider();
+    this.resetRequestCount();
   }
 
   private createProvider(): ethers.JsonRpcProvider {
@@ -18,7 +21,7 @@ export class ProviderService {
       ensAddress: null
     });
     
-    provider.pollingInterval = 5000;
+    provider.pollingInterval = 6000;
     
     provider.on('error', (error) => {
       console.error('Provider error:', error);
@@ -34,16 +37,32 @@ export class ProviderService {
     this.lastRequestTime = 0;
   }
 
+  private resetRequestCount() {
+    setInterval(() => {
+      this.requestCount = 0;
+      this.lastResetTime = Date.now();
+    }, 1000); // Reset counter every second
+  }
+
   private async waitForRateLimit() {
+    // Check if we're approaching rate limit
+    if (this.requestCount >= 35) { // Buffer below the 40/s limit
+      const timeUntilReset = 1000 - (Date.now() - this.lastResetTime);
+      if (timeUntilReset > 0) {
+        await new Promise(resolve => setTimeout(resolve, timeUntilReset));
+      }
+    }
+
     const now = Date.now();
     const timeSinceLastRequest = now - this.lastRequestTime;
     
     if (timeSinceLastRequest < REQUEST_DELAY) {
-      const waitTime = REQUEST_DELAY + (this.consecutiveErrors * 100); // Exponential backoff
+      const waitTime = REQUEST_DELAY + (this.consecutiveErrors * 200); // Increased backoff multiplier
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
     
     this.lastRequestTime = Date.now();
+    this.requestCount++;
   }
 
   private async testConnection(): Promise<void> {
@@ -51,7 +70,6 @@ export class ProviderService {
     if (network.chainId !== 56n) {
       throw new Error('Invalid chain ID');
     }
-    // Reset consecutive errors on successful connection
     this.consecutiveErrors = 0;
   }
 
@@ -71,7 +89,7 @@ export class ProviderService {
   }
 
   setPollingInterval(intensive: boolean) {
-    // Increase polling intervals to reduce request frequency
-    this.provider.pollingInterval = intensive ? 3000 : 6000;
+    // Further increased polling intervals
+    this.provider.pollingInterval = intensive ? 4000 : 8000;
   }
 }

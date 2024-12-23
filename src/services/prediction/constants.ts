@@ -7,9 +7,9 @@ export const PREDICTION_ABI = [
 ];
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-export const BLOCKS_PER_QUERY = 10; // Reduced from 25
-export const REQUEST_DELAY = 500; // Increased from 100
-export const RATE_LIMIT_DELAY = 30000; // Increased from 15000
+export const BLOCKS_PER_QUERY = 5; // Further reduced from 10
+export const REQUEST_DELAY = 1500; // Increased from 500
+export const RATE_LIMIT_DELAY = 60000; // Increased from 30000
 export const MAX_RETRIES = 3;
 
 export const RPC_ENDPOINTS = [
