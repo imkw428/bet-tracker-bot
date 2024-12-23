@@ -9,7 +9,6 @@ export class ProviderService {
   private readonly normalPollingInterval = 3000;
   private readonly intensivePollingInterval = 1000;
   private lastRequestTime: number = 0;
-  private failedNodes: Set<string> = new Set();
 
   constructor() {
     this.provider = this.createProvider();
@@ -28,7 +27,7 @@ export class ProviderService {
   private async waitForRateLimit() {
     const now = Date.now();
     const timeSinceLastRequest = now - this.lastRequestTime;
-    const minDelay = REQUEST_DELAY * Math.pow(1.5, this.retryCount);
+    const minDelay = REQUEST_DELAY * (this.retryCount + 1);
     
     if (timeSinceLastRequest < minDelay) {
       await new Promise(resolve => setTimeout(resolve, minDelay - timeSinceLastRequest));
@@ -37,62 +36,42 @@ export class ProviderService {
     this.lastRequestTime = Date.now();
   }
 
-  private getNextAvailableRpc(): string | null {
-    const availableRpcs = RPC_ENDPOINTS.filter(rpc => !this.failedNodes.has(rpc));
-    if (availableRpcs.length === 0) {
-      this.failedNodes.clear();
-      return RPC_ENDPOINTS[0];
-    }
-    return availableRpcs[Math.floor(Math.random() * availableRpcs.length)];
-  }
-
   async switchToNextRpc(): Promise<ethers.JsonRpcProvider> {
     await this.waitForRateLimit();
     
-    const nextRpc = this.getNextAvailableRpc();
-    if (!nextRpc) {
-      throw new Error('No available RPC nodes');
-    }
-
+    console.log(`Switching to next RPC endpoint, current index: ${this.currentRpcIndex}`);
+    this.currentRpcIndex = (this.currentRpcIndex + 1) % RPC_ENDPOINTS.length;
+    
     try {
-      this.provider = new ethers.JsonRpcProvider(nextRpc, {
-        chainId: 56,
-        name: 'bnb',
-        ensAddress: null
-      });
-      
+      this.provider = this.createProvider();
       await this.provider.getNetwork();
-      this.retryCount = 0;
+      this.retryCount = 0; // Reset retry count on successful connection
       return this.provider;
     } catch (error) {
-      console.error(`Failed to connect to RPC ${nextRpc}:`, error);
-      this.failedNodes.add(nextRpc);
+      console.error(`Failed to connect to RPC endpoint ${RPC_ENDPOINTS[this.currentRpcIndex]}:`, error);
       
-      this.retryCount++;
-      if (this.retryCount >= this.maxRetries) {
-        throw new Error('All RPC nodes failed to connect');
+      if (this.currentRpcIndex === 0) {
+        this.retryCount++;
+        // Exponential backoff with max delay of 30 seconds
+        const delay = Math.min(REQUEST_DELAY * Math.pow(2, this.retryCount), 30000);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
       
-      return this.switchToNextRpc();
+      if (this.retryCount < this.maxRetries) {
+        return this.switchToNextRpc();
+      }
+      
+      throw new Error('All RPC nodes failed to connect');
     }
   }
 
   async getProvider(): Promise<ethers.JsonRpcProvider> {
     await this.waitForRateLimit();
-    
-    try {
-      await this.provider.getNetwork();
-      return this.provider;
-    } catch (error) {
-      console.error('Current provider failed, switching to next RPC');
-      return this.switchToNextRpc();
-    }
+    return this.provider;
   }
 
   setPollingInterval(intensive: boolean) {
-    this.provider.pollingInterval = intensive ? 
-      this.intensivePollingInterval : 
-      this.normalPollingInterval;
+    this.provider.pollingInterval = intensive ? this.intensivePollingInterval : this.normalPollingInterval;
   }
 
   async isProviderHealthy(): Promise<boolean> {

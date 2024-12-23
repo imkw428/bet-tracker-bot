@@ -3,7 +3,6 @@ import { PREDICTION_ABI, PREDICTION_ADDRESS } from './constants';
 import { ProviderService } from './provider';
 import { LogService } from './logs';
 import { BetEvent, RoundInfo } from './types';
-import { toast } from "@/components/ui/use-toast";
 
 export class PredictionService {
   private provider: ProviderService;
@@ -27,31 +26,27 @@ export class PredictionService {
     );
   }
 
-  private async executeWithRetry<T>(operation: () => Promise<T>, retryCount = 0): Promise<T> {
+  private async executeWithRetry<T>(operation: () => Promise<T>): Promise<T> {
+    let retryCount = 0;
     const maxRetries = 5;
-    const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 10000);
 
-    try {
-      return await operation();
-    } catch (error) {
-      console.error(`Operation failed (retry ${retryCount + 1}/${maxRetries}):`, error);
-      
-      if (retryCount >= maxRetries) {
-        toast({
-          title: "連接錯誤",
-          description: "無法連接到區塊鏈網絡，請稍後再試",
-          variant: "destructive",
-        });
-        throw new Error('Maximum retry attempts exceeded');
+    while (retryCount < maxRetries) {
+      try {
+        return await operation();
+      } catch (error) {
+        console.error(`Operation failed (retry ${retryCount + 1}/${maxRetries}):`, error);
+        
+        if (retryCount === maxRetries - 1) {
+          throw new Error('All RPC nodes failed to connect');
+        }
+        
+        const newProvider = await this.provider.switchToNextRpc();
+        this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, newProvider);
+        retryCount++;
       }
-      
-      await new Promise(resolve => setTimeout(resolve, backoffDelay));
-      
-      const newProvider = await this.provider.switchToNextRpc();
-      this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, newProvider);
-      
-      return this.executeWithRetry(operation, retryCount + 1);
     }
+
+    throw new Error('Maximum retry attempts exceeded');
   }
 
   async getCurrentEpoch(): Promise<number> {
