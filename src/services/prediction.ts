@@ -9,9 +9,9 @@ const PREDICTION_ABI = [
 ];
 
 const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-const BLOCKS_PER_QUERY = 25; // 減少每次查詢的區塊數
-const QUERY_DELAY = 3000; // 增加延遲
-const MAX_BLOCKS = 200; // 減少最大區塊範圍
+const BLOCKS_PER_QUERY = 25;
+const QUERY_DELAY = 3000;
+const MAX_BLOCKS = 200;
 const RPC_SWITCH_DELAY = 5000;
 
 // BSC Network Configuration
@@ -22,7 +22,7 @@ const BSC_NETWORK = {
   ensNetwork: null
 };
 
-// 擴充 RPC 節點列表
+// RPC Endpoints
 const RPC_ENDPOINTS = [
   "https://bsc-dataseed.binance.org",
   "https://bsc-dataseed1.binance.org",
@@ -49,10 +49,11 @@ export class PredictionService {
   }
 
   private createProvider(): ethers.JsonRpcProvider {
-    const provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex], {
-      ...BSC_NETWORK,
-      timeout: 10000
-    });
+    const provider = new ethers.JsonRpcProvider(
+      RPC_ENDPOINTS[this.currentRpcIndex],
+      BSC_NETWORK
+    );
+    provider.pollingInterval = 10000; // Set polling interval instead of timeout
     return provider;
   }
 
