@@ -68,8 +68,8 @@ export class LogService {
         }
       } catch (error) {
         console.error(`Error fetching logs for range ${start}-${end}:`, error);
-        // 錯誤時增加等待時間到15秒
-        await new Promise(resolve => setTimeout(resolve, 15000));
+        // 註解掉錯誤重試的等待時間
+        // await new Promise(resolve => setTimeout(resolve, 15000));
         continue;
       }
     }
