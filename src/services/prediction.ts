@@ -9,9 +9,9 @@ const PREDICTION_ABI = [
 ];
 
 const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-const BLOCKS_PER_QUERY = 15; // Reduced block range
-const QUERY_DELAY = 5000; // Increased delay
-const MAX_BLOCKS = 150; // Reduced max blocks
+const BLOCKS_PER_QUERY = 15;
+const QUERY_DELAY = 5000;
+const MAX_BLOCKS = 150;
 const RPC_SWITCH_DELAY = 5000;
 
 // BSC Network Configuration
@@ -22,20 +22,16 @@ const BSC_NETWORK = {
   ensNetwork: null
 };
 
-// Updated RPC Endpoints with more CORS-friendly options
+// Prioritized list of CORS-friendly RPC endpoints
 const RPC_ENDPOINTS = [
   "https://bsc.publicnode.com",
   "https://bsc-mainnet.public.blastapi.io",
-  "https://binance.nodereal.io",
+  "https://1rpc.io/bnb",
   "https://bsc.meowrpc.com",
+  "https://binance.llamarpc.com",
   "https://bsc.rpc.blxrbdn.com",
   "https://bsc-dataseed1.defibit.io",
   "https://bsc-dataseed2.defibit.io",
-  "https://bsc-dataseed.binance.org",
-  "https://bsc-dataseed1.binance.org",
-  "https://bsc-dataseed2.binance.org",
-  "https://bsc-dataseed3.binance.org",
-  "https://bsc-dataseed4.binance.org",
 ];
 
 export class PredictionService {
@@ -45,6 +41,7 @@ export class PredictionService {
   private currentRpcIndex: number = 0;
   private lastRequestTime: number = 0;
   private consecutiveFailures: number = 0;
+  private maxRetries: number = 8;
 
   constructor() {
     this.provider = this.createProvider();
@@ -55,25 +52,33 @@ export class PredictionService {
   private createProvider(): ethers.JsonRpcProvider {
     const provider = new ethers.JsonRpcProvider(
       RPC_ENDPOINTS[this.currentRpcIndex],
-      BSC_NETWORK
+      BSC_NETWORK,
+      {
+        staticNetwork: null,
+        batchMaxCount: 1,
+        polling: true,
+        pollingInterval: 10000,
+      }
     );
-    provider.pollingInterval = 10000;
     return provider;
   }
 
   private async switchToNextRpc(): Promise<void> {
     this.consecutiveFailures++;
     
-    // If we've had too many failures, wait longer
-    if (this.consecutiveFailures > 3) {
-      await new Promise(resolve => setTimeout(resolve, this.consecutiveFailures * RPC_SWITCH_DELAY));
-    }
+    // Exponential backoff based on consecutive failures
+    const backoffDelay = Math.min(
+      RPC_SWITCH_DELAY * Math.pow(2, this.consecutiveFailures - 1),
+      30000
+    );
+    
+    await new Promise(resolve => setTimeout(resolve, backoffDelay));
     
     this.currentRpcIndex = (this.currentRpcIndex + 1) % RPC_ENDPOINTS.length;
     this.provider = this.createProvider();
     this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
+    
     console.log(`Switched to RPC endpoint: ${RPC_ENDPOINTS[this.currentRpcIndex]}`);
-    await new Promise(resolve => setTimeout(resolve, RPC_SWITCH_DELAY));
   }
 
   private async throttleRequest(): Promise<void> {
@@ -85,25 +90,26 @@ export class PredictionService {
     this.lastRequestTime = Date.now();
   }
 
-  private async executeWithRetry<T>(operation: () => Promise<T>, retries = 5): Promise<T> {
-    for (let i = 0; i < retries; i++) {
+  private async executeWithRetry<T>(operation: () => Promise<T>): Promise<T> {
+    for (let i = 0; i < this.maxRetries; i++) {
       try {
         await this.throttleRequest();
         const result = await operation();
-        this.consecutiveFailures = 0; // Reset on success
+        this.consecutiveFailures = 0;
         return result;
       } catch (error: any) {
-        console.error(`Operation attempt failed (${i + 1}/${retries}):`, error);
+        console.error(`Operation attempt failed (${i + 1}/${this.maxRetries}):`, error);
         
-        const isNetworkError = error.code === 'NETWORK_ERROR' || 
-                              error.code === 'TIMEOUT' || 
-                              error.message.includes('failed to meet quorum') ||
-                              error.message.includes('Failed to fetch');
+        const isNetworkError = 
+          error.code === 'NETWORK_ERROR' ||
+          error.code === 'TIMEOUT' ||
+          error.message.includes('failed to meet quorum') ||
+          error.message.includes('Failed to fetch') ||
+          error.message.includes('failed to get payload') ||
+          error.message.includes('connection error');
         
-        if (isNetworkError && i < retries - 1) {
+        if (isNetworkError && i < this.maxRetries - 1) {
           await this.switchToNextRpc();
-          const delay = Math.min(2000 * Math.pow(2, i) + Math.random() * 1000, 10000);
-          await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
         
