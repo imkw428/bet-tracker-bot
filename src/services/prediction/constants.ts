@@ -14,12 +14,11 @@ export const BLOCKS_PER_QUERY = 25;
 // Increased delay between requests
 export const REQUEST_DELAY = 10000;
 
-// Updated RPC endpoints with more reliable nodes
+// Updated RPC endpoints to use QuickNode
 export const RPC_ENDPOINTS = [
+  "https://bold-twilight-tree.bsc.discover.quiknode.pro/",
   "https://bsc-dataseed1.binance.org",
   "https://bsc-dataseed2.binance.org",
   "https://bsc-dataseed3.binance.org",
   "https://bsc-dataseed4.binance.org",
-  "https://bsc-dataseed.binance.org",
-  "https://binance.nodereal.io",
 ];
