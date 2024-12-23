@@ -8,15 +8,16 @@ export const ABI = [
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
 
-// Reduce batch size from 25 to 10 blocks per query
-export const BLOCKS_PER_QUERY = 10;
+// 進一步減少批次大小到5個區塊
+export const BLOCKS_PER_QUERY = 5;
 
-// Increase delay between requests
-export const REQUEST_DELAY = 12000;
+// 增加請求延遲到15秒
+export const REQUEST_DELAY = 15000;
 
+// 更新RPC端點列表，使用更可靠的節點
 export const RPC_ENDPOINTS = [
-  "https://bsc-dataseed.binance.org",
-  "https://bsc-dataseed1.defibit.io",
-  "https://bsc-dataseed1.ninicoin.io",
-  "https://bsc-dataseed2.defibit.io",
+  "https://bsc-dataseed1.bnbchain.org",
+  "https://bsc-dataseed2.bnbchain.org",
+  "https://bsc-dataseed3.bnbchain.org",
+  "https://bsc-dataseed4.bnbchain.org",
 ];

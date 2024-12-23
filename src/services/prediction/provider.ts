@@ -6,17 +6,16 @@ export class ProviderService {
   private providers: ethers.JsonRpcProvider[];
   private currentProviderIndex: number;
   private readonly rpcUrls = [
-    'https://bsc-dataseed1.binance.org:443',
-    'https://bsc-dataseed2.binance.org:443',
-    'https://bsc-dataseed3.binance.org:443',
-    'https://bsc-dataseed4.binance.org:443',
-    'https://bsc-dataseed-failover.binance.org:443'
+    'https://bsc-dataseed1.bnbchain.org',
+    'https://bsc-dataseed2.bnbchain.org',
+    'https://bsc-dataseed3.bnbchain.org',
+    'https://bsc-dataseed4.bnbchain.org'
   ];
 
   private constructor() {
     this.providers = this.rpcUrls.map(url => {
       const provider = new ethers.JsonRpcProvider(url);
-      provider.pollingInterval = REQUEST_DELAY; // 增加輪詢間隔
+      provider.pollingInterval = REQUEST_DELAY;
       return provider;
     });
     this.currentProviderIndex = 0;
@@ -39,7 +38,7 @@ export class ProviderService {
       await provider.getBlockNumber();
       return provider;
     } catch (error) {
-      console.log(`Provider ${this.currentProviderIndex} failed, switching...`);
+      console.log(`Provider ${this.currentProviderIndex} 失敗，切換中...`);
       await this.delay(REQUEST_DELAY);
       return this.switchProvider();
     }
@@ -51,12 +50,12 @@ export class ProviderService {
     
     try {
       await newProvider.getBlockNumber();
-      console.log(`Switched to provider ${this.currentProviderIndex}`);
+      console.log(`已切換到 provider ${this.currentProviderIndex}`);
       return newProvider;
     } catch (error) {
       if (this.currentProviderIndex === 0) {
         await this.delay(REQUEST_DELAY * 2);
-        throw new Error('All providers failed');
+        throw new Error('所有 provider 都失敗了');
       }
       await this.delay(REQUEST_DELAY);
       return this.switchProvider();
