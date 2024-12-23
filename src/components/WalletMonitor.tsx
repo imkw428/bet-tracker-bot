@@ -37,34 +37,48 @@ export const WalletMonitor = () => {
     let interval: NodeJS.Timeout;
 
     if (monitoring && wallets.length > 0) {
-      // 每3秒更新一次
+      // Update every 10 seconds instead of 3
       const updateData = async () => {
         try {
-          // 更新當前回合
           const epoch = await predictionService.getCurrentEpoch();
           setCurrentEpoch(Number(epoch));
 
-          // 更新每個錢包的歷史記錄
+          // Add delay between wallet updates
           for (const wallet of wallets) {
-            const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
-            setWallets(prevWallets =>
-              prevWallets.map(w => {
-                if (w.address === wallet.address) {
-                  return { ...w, history };
-                }
-                return w;
-              })
-            );
+            try {
+              const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
+              setWallets(prevWallets =>
+                prevWallets.map(w => {
+                  if (w.address === wallet.address) {
+                    return { ...w, history };
+                  }
+                  return w;
+                })
+              );
+              // Add small delay between wallet updates
+              await new Promise(resolve => setTimeout(resolve, 200));
+            } catch (error) {
+              console.error(`Error updating wallet ${wallet.address}:`, error);
+              toast({
+                title: "更新錢包資料時出錯",
+                description: `地址: ${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`,
+                variant: "destructive",
+              });
+            }
           }
         } catch (error) {
-          console.error('更新數據時出錯:', error);
+          console.error('Error updating data:', error);
+          toast({
+            title: "更新資料時出錯",
+            description: "請稍後再試",
+            variant: "destructive",
+          });
         }
       };
 
       updateData();
-      interval = setInterval(updateData, 3000); // 每3秒更新一次
+      interval = setInterval(updateData, 10000); // Changed from 3000 to 10000
 
-      // 為每個錢包設置下注監聽
       wallets.forEach(wallet => {
         predictionService.onNewBet(wallet.address, (bet) => {
           setWallets(prevWallets => 

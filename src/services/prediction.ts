@@ -9,9 +9,10 @@ const PREDICTION_ABI = [
 ];
 
 const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-const BLOCKS_PER_QUERY = 2000;
+const BLOCKS_PER_QUERY = 500; // Reduced from 2000 to 500
+const QUERY_DELAY = 200; // 200ms delay between queries
 
-// 多個 RPC 節點以實現故障轉移
+// Multiple RPC nodes for failover
 const RPC_ENDPOINTS = [
   "https://bsc-dataseed.binance.org",
   "https://bsc-dataseed1.binance.org",
@@ -40,6 +41,7 @@ export class PredictionService {
     this.currentRpcIndex = (this.currentRpcIndex + 1) % RPC_ENDPOINTS.length;
     this.provider = this.createProvider();
     this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
+    console.log(`Switched to RPC endpoint: ${RPC_ENDPOINTS[this.currentRpcIndex]}`);
   }
 
   private async executeWithRetry<T>(operation: () => Promise<T>, retries = 3): Promise<T> {
@@ -47,16 +49,18 @@ export class PredictionService {
       try {
         return await operation();
       } catch (error) {
-        console.error(`嘗試執行操作失敗 (${i + 1}/${retries}):`, error);
+        console.error(`Operation attempt failed (${i + 1}/${retries}):`, error);
         if (i < retries - 1) {
           await this.switchToNextRpc();
-          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // 指數退避
+          // Exponential backoff with jitter
+          const delay = Math.min(1000 * Math.pow(2, i) + Math.random() * 1000, 10000);
+          await new Promise(resolve => setTimeout(resolve, delay));
         } else {
           throw error;
         }
       }
     }
-    throw new Error('所有重試都失敗了');
+    throw new Error('All retry attempts failed');
   }
 
   async getCurrentEpoch(): Promise<number> {
@@ -82,7 +86,7 @@ export class PredictionService {
   private async queryLogsInBatches(filter: any): Promise<ethers.Log[]> {
     return await this.executeWithRetry(async () => {
       const latestBlock = await this.provider.getBlockNumber();
-      const fromBlock = latestBlock - 10000; // 最近10000個區塊
+      const fromBlock = latestBlock - 5000; // Reduced from 10000 to 5000 blocks
       const ranges = await this.getBlockRanges(fromBlock, latestBlock);
       
       const allLogs: ethers.Log[] = [];
@@ -94,9 +98,10 @@ export class PredictionService {
             toBlock: end,
           });
           allLogs.push(...logs);
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Add delay between batch requests
+          await new Promise(resolve => setTimeout(resolve, QUERY_DELAY));
         } catch (error) {
-          console.error(`獲取日誌範圍 ${start}-${end} 時出錯:`, error);
+          console.error(`Error getting logs for range ${start}-${end}:`, error);
           throw error;
         }
       }
