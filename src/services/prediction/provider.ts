@@ -3,7 +3,7 @@ import { RPC_ENDPOINTS, REQUEST_DELAY } from './constants';
 import { useToast } from "@/components/ui/use-toast";
 
 export class ProviderService {
-  private provider: ethers.JsonRpcProvider;
+  private provider: ethers.JsonRpcProvider | ethers.WebSocketProvider;
   private currentRpcIndex: number = 0;
   private retryCount: number = 0;
   private readonly maxRetries: number = 3;
@@ -16,20 +16,23 @@ export class ProviderService {
     this.provider = this.createProvider();
   }
 
-  private createProvider(): ethers.JsonRpcProvider {
-    // Check if QuickNode API key is configured
-    if (!import.meta.env.VITE_QUICKNODE_API_KEY && this.currentRpcIndex === 0) {
-      console.warn('QuickNode API key not configured, falling back to public nodes');
-      this.currentRpcIndex = 1; // Skip QuickNode endpoint
+  private createProvider(): ethers.JsonRpcProvider | ethers.WebSocketProvider {
+    const endpoint = RPC_ENDPOINTS[this.currentRpcIndex];
+    
+    if (typeof endpoint === 'object' && endpoint.ws) {
+      return new ethers.WebSocketProvider(endpoint.ws, {
+        chainId: 56,
+        name: 'bnb',
+        ensAddress: null
+      });
     }
 
-    const provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex], {
+    const url = typeof endpoint === 'object' ? endpoint.http : endpoint;
+    return new ethers.JsonRpcProvider(url, {
       chainId: 56,
       name: 'bnb',
       ensAddress: null
     });
-    provider.pollingInterval = this.normalPollingInterval;
-    return provider;
   }
 
   private async waitForRateLimit() {
@@ -44,16 +47,21 @@ export class ProviderService {
     this.lastRequestTime = Date.now();
   }
 
-  private getNextAvailableRpc(): string | null {
-    const availableRpcs = RPC_ENDPOINTS.filter(rpc => !this.failedNodes.has(rpc));
+  private getNextAvailableRpc(): string | { http: string; ws: string } | null {
+    const availableRpcs = RPC_ENDPOINTS.filter((rpc) => {
+      const url = typeof rpc === 'object' ? rpc.http : rpc;
+      return !this.failedNodes.has(url);
+    });
+    
     if (availableRpcs.length === 0) {
       this.failedNodes.clear();
       return RPC_ENDPOINTS[0];
     }
+    
     return availableRpcs[Math.floor(Math.random() * availableRpcs.length)];
   }
 
-  async switchToNextRpc(): Promise<ethers.JsonRpcProvider> {
+  async switchToNextRpc(): Promise<ethers.JsonRpcProvider | ethers.WebSocketProvider> {
     await this.waitForRateLimit();
     
     const nextRpc = this.getNextAvailableRpc();
@@ -62,19 +70,30 @@ export class ProviderService {
     }
 
     try {
-      const newProvider = new ethers.JsonRpcProvider(nextRpc, {
-        chainId: 56,
-        name: 'bnb',
-        ensAddress: null
-      });
+      if (this.provider instanceof ethers.WebSocketProvider) {
+        await this.provider.destroy();
+      }
+
+      const newProvider = typeof nextRpc === 'object' && nextRpc.ws
+        ? new ethers.WebSocketProvider(nextRpc.ws, {
+            chainId: 56,
+            name: 'bnb',
+            ensAddress: null
+          })
+        : new ethers.JsonRpcProvider(typeof nextRpc === 'object' ? nextRpc.http : nextRpc, {
+            chainId: 56,
+            name: 'bnb',
+            ensAddress: null
+          });
       
       await newProvider.getNetwork();
       this.provider = newProvider;
       this.retryCount = 0;
       return this.provider;
     } catch (error) {
-      console.error(`Failed to connect to RPC ${nextRpc}:`, error);
-      this.failedNodes.add(nextRpc);
+      console.error(`Failed to connect to RPC ${JSON.stringify(nextRpc)}:`, error);
+      const url = typeof nextRpc === 'object' ? nextRpc.http : nextRpc;
+      this.failedNodes.add(url);
       
       this.retryCount++;
       if (this.retryCount >= this.maxRetries) {
@@ -85,7 +104,7 @@ export class ProviderService {
     }
   }
 
-  async getProvider(): Promise<ethers.JsonRpcProvider> {
+  async getProvider(): Promise<ethers.JsonRpcProvider | ethers.WebSocketProvider> {
     await this.waitForRateLimit();
     
     try {
@@ -98,9 +117,11 @@ export class ProviderService {
   }
 
   setPollingInterval(intensive: boolean) {
-    this.provider.pollingInterval = intensive ? 
-      this.intensivePollingInterval : 
-      this.normalPollingInterval;
+    if (this.provider instanceof ethers.JsonRpcProvider) {
+      this.provider.pollingInterval = intensive ? 
+        this.intensivePollingInterval : 
+        this.normalPollingInterval;
+    }
   }
 
   async isProviderHealthy(): Promise<boolean> {
