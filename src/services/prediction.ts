@@ -9,10 +9,10 @@ const PREDICTION_ABI = [
 ];
 
 const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-const BLOCKS_PER_QUERY = 500; // Reduced from 2000 to 500
-const QUERY_DELAY = 200; // 200ms delay between queries
+const BLOCKS_PER_QUERY = 100; // 從 500 降到 100
+const QUERY_DELAY = 1000; // 從 200ms 增加到 1000ms
+const MAX_BLOCKS = 1000; // 限制最大查詢區塊數
 
-// Multiple RPC nodes for failover
 const RPC_ENDPOINTS = [
   "https://bsc-dataseed.binance.org",
   "https://bsc-dataseed1.binance.org",
@@ -42,6 +42,8 @@ export class PredictionService {
     this.provider = this.createProvider();
     this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
     console.log(`Switched to RPC endpoint: ${RPC_ENDPOINTS[this.currentRpcIndex]}`);
+    // 切換 RPC 後等待 2 秒
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
 
   private async executeWithRetry<T>(operation: () => Promise<T>, retries = 3): Promise<T> {
@@ -52,7 +54,7 @@ export class PredictionService {
         console.error(`Operation attempt failed (${i + 1}/${retries}):`, error);
         if (i < retries - 1) {
           await this.switchToNextRpc();
-          // Exponential backoff with jitter
+          // 指數退避延遲
           const delay = Math.min(1000 * Math.pow(2, i) + Math.random() * 1000, 10000);
           await new Promise(resolve => setTimeout(resolve, delay));
         } else {
@@ -76,8 +78,10 @@ export class PredictionService {
 
   private async getBlockRanges(fromBlock: number, toBlock: number): Promise<Array<[number, number]>> {
     const ranges: Array<[number, number]> = [];
-    for (let start = fromBlock; start <= toBlock; start += BLOCKS_PER_QUERY) {
-      const end = Math.min(start + BLOCKS_PER_QUERY - 1, toBlock);
+    const actualToBlock = Math.min(fromBlock + MAX_BLOCKS, toBlock);
+    
+    for (let start = fromBlock; start <= actualToBlock; start += BLOCKS_PER_QUERY) {
+      const end = Math.min(start + BLOCKS_PER_QUERY - 1, actualToBlock);
       ranges.push([start, end]);
     }
     return ranges;
@@ -86,7 +90,7 @@ export class PredictionService {
   private async queryLogsInBatches(filter: any): Promise<ethers.Log[]> {
     return await this.executeWithRetry(async () => {
       const latestBlock = await this.provider.getBlockNumber();
-      const fromBlock = latestBlock - 5000; // Reduced from 10000 to 5000 blocks
+      const fromBlock = latestBlock - MAX_BLOCKS;
       const ranges = await this.getBlockRanges(fromBlock, latestBlock);
       
       const allLogs: ethers.Log[] = [];
@@ -98,7 +102,7 @@ export class PredictionService {
             toBlock: end,
           });
           allLogs.push(...logs);
-          // Add delay between batch requests
+          // 每次查詢後等待
           await new Promise(resolve => setTimeout(resolve, QUERY_DELAY));
         } catch (error) {
           console.error(`Error getting logs for range ${start}-${end}:`, error);

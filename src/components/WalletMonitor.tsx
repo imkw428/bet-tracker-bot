@@ -37,13 +37,12 @@ export const WalletMonitor = () => {
     let interval: NodeJS.Timeout;
 
     if (monitoring && wallets.length > 0) {
-      // Update every 10 seconds instead of 3
       const updateData = async () => {
         try {
           const epoch = await predictionService.getCurrentEpoch();
           setCurrentEpoch(Number(epoch));
 
-          // Add delay between wallet updates
+          // 每個錢包更新之間增加延遲
           for (const wallet of wallets) {
             try {
               const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
@@ -55,8 +54,8 @@ export const WalletMonitor = () => {
                   return w;
                 })
               );
-              // Add small delay between wallet updates
-              await new Promise(resolve => setTimeout(resolve, 200));
+              // 每次更新錢包後等待 2 秒
+              await new Promise(resolve => setTimeout(resolve, 2000));
             } catch (error) {
               console.error(`Error updating wallet ${wallet.address}:`, error);
               toast({
@@ -77,7 +76,8 @@ export const WalletMonitor = () => {
       };
 
       updateData();
-      interval = setInterval(updateData, 10000); // Changed from 3000 to 10000
+      // 將更新間隔從 10 秒增加到 30 秒
+      interval = setInterval(updateData, 30000);
 
       wallets.forEach(wallet => {
         predictionService.onNewBet(wallet.address, (bet) => {
