@@ -7,10 +7,10 @@ export const PREDICTION_ABI = [
 ];
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-export const BLOCKS_PER_QUERY = 20; // Reduced from 50 to 20
-export const QUERY_DELAY = 8000; // Increased from 5000 to 8000ms
-export const MAX_RETRIES = 3; // Reduced from 5 to 3
-export const CHUNK_SIZE = 5; // Reduced from 10 to 5 blocks per chunk
+export const BLOCKS_PER_QUERY = 20;
+export const QUERY_DELAY = 8000;
+export const MAX_RETRIES = 3;
+export const CHUNK_SIZE = 5;
 
 export const BSC_NETWORK = {
   name: 'bnb',
@@ -19,6 +19,7 @@ export const BSC_NETWORK = {
   ensNetwork: null
 };
 
+export const WS_ENDPOINT = "wss://bsc-ws-node.nariox.org:443";
 export const RPC_ENDPOINTS = [
   "https://bsc-dataseed.binance.org"
 ];

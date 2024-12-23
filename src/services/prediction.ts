@@ -6,15 +6,15 @@ import {
   QUERY_DELAY,
   CHUNK_SIZE,
   MAX_RETRIES,
-  BSC_NETWORK,
-  RPC_ENDPOINTS
 } from './blockchain/constants';
 import { ProviderManager } from './blockchain/provider';
 import { EventCache } from './blockchain/eventCache';
 
 export class PredictionService {
   private provider: ethers.JsonRpcProvider;
+  private wsProvider: ethers.WebSocketProvider;
   private contract: ethers.Contract;
+  private wsContract: ethers.Contract;
   private interface: ethers.Interface;
   private providerManager: ProviderManager;
   private eventCache: EventCache;
@@ -23,7 +23,9 @@ export class PredictionService {
   constructor() {
     this.providerManager = new ProviderManager();
     this.provider = this.providerManager.createProvider();
+    this.wsProvider = this.providerManager.createWebSocketProvider();
     this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
+    this.wsContract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.wsProvider);
     this.interface = new ethers.Interface(PREDICTION_ABI);
     this.eventCache = new EventCache();
   }
@@ -80,13 +82,11 @@ export class PredictionService {
         
         logs.push(...chunkLogs);
         
-        // Add extra delay between chunks
         if (start + CHUNK_SIZE <= toBlock) {
           await new Promise(resolve => setTimeout(resolve, QUERY_DELAY * 1.5));
         }
       } catch (error) {
         console.error(`Error fetching logs for blocks ${start}-${end}:`, error);
-        // Continue with next chunk instead of failing completely
         await new Promise(resolve => setTimeout(resolve, QUERY_DELAY * 2));
         continue;
       }
@@ -156,7 +156,7 @@ export class PredictionService {
   }
 
   onNewBet(address: string, callback: (bet: { type: 'bull' | 'bear', epoch: number, amount: string }) => void) {
-    this.contract.on("BetBull", (sender: string, epoch: bigint, amount: bigint) => {
+    this.wsContract.on("BetBull", (sender: string, epoch: bigint, amount: bigint) => {
       if (sender.toLowerCase() === address.toLowerCase()) {
         const cacheKey = this.eventCache.getCacheKey(address, Number(epoch));
         if (!this.eventCache.has(cacheKey)) {
@@ -170,7 +170,7 @@ export class PredictionService {
       }
     });
 
-    this.contract.on("BetBear", (sender: string, epoch: bigint, amount: bigint) => {
+    this.wsContract.on("BetBear", (sender: string, epoch: bigint, amount: bigint) => {
       if (sender.toLowerCase() === address.toLowerCase()) {
         const cacheKey = this.eventCache.getCacheKey(address, Number(epoch));
         if (!this.eventCache.has(cacheKey)) {
