@@ -3,6 +3,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PredictionService } from '@/services/prediction';
+import { walletStorage } from '@/services/walletStorage';
 import { WalletCard } from './WalletCard';
 import { WalletList } from './wallet/WalletList';
 import { MonitorStatus } from './wallet/MonitorStatus';
@@ -33,6 +34,29 @@ export const WalletMonitor = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [wallets, setWallets] = useState<WalletData[]>([]);
   
+  // 載入已儲存的錢包
+  useEffect(() => {
+    const loadStoredWallets = async () => {
+      try {
+        const storedWallets = await walletStorage.getWallets();
+        setWallets(storedWallets.map(w => ({
+          address: w.address,
+          history: null,
+          recentBets: []
+        })));
+      } catch (error) {
+        console.error('載入錢包時出錯:', error);
+        toast({
+          title: "載入錢包時出錯",
+          description: "請稍後再試",
+          variant: "destructive",
+        });
+      }
+    };
+
+    loadStoredWallets();
+  }, [toast]);
+
   useEffect(() => {
     const predictionService = new PredictionService();
     let interval: NodeJS.Timeout;
@@ -108,7 +132,7 @@ export const WalletMonitor = () => {
     };
   }, [monitoring, wallets, toast, isPaused]);
 
-  const addWallet = () => {
+  const addWallet = async () => {
     if (!newAddress) {
       toast({
         title: "錯誤",
@@ -127,16 +151,36 @@ export const WalletMonitor = () => {
       return;
     }
 
-    setWallets(prev => [...prev, {
-      address: newAddress,
-      history: null,
-      recentBets: []
-    }]);
-    setNewAddress('');
+    try {
+      await walletStorage.addWallet(newAddress);
+      setWallets(prev => [...prev, {
+        address: newAddress,
+        history: null,
+        recentBets: []
+      }]);
+      setNewAddress('');
+    } catch (error) {
+      console.error('添加錢包時出錯:', error);
+      toast({
+        title: "添加錢包時出錯",
+        description: "請稍後再試",
+        variant: "destructive",
+      });
+    }
   };
 
-  const removeWallet = (address: string) => {
-    setWallets(prev => prev.filter(w => w.address !== address));
+  const removeWallet = async (address: string) => {
+    try {
+      await walletStorage.removeWallet(address);
+      setWallets(prev => prev.filter(w => w.address !== address));
+    } catch (error) {
+      console.error('移除錢包時出錯:', error);
+      toast({
+        title: "移除錢包時出錯",
+        description: "請稍後再試",
+        variant: "destructive",
+      });
+    }
   };
 
   const startMonitoring = () => {
