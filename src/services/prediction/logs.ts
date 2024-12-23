@@ -43,6 +43,9 @@ export class LogService {
 
     for (const [start, end] of ranges) {
       try {
+        // Add delay between batch requests
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         const logs = await provider.getLogs({
           ...filter,
           fromBlock: start,
@@ -74,7 +77,8 @@ export class LogService {
         }
       } catch (error) {
         console.error(`Error fetching logs for range ${start}-${end}:`, error);
-        throw error;
+        // Don't throw here, continue with next range
+        continue;
       }
     }
 
