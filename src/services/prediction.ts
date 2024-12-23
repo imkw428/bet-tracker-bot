@@ -47,7 +47,7 @@ export class PredictionService {
       const isLimitExceeded = error.message?.includes('limit exceeded');
       
       if (isLimitExceeded && retryCount < MAX_RETRIES) {
-        const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+        const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 15000);
         await new Promise(resolve => setTimeout(resolve, backoffDelay + QUERY_DELAY));
         return this.executeWithRetry(operation, retryCount + 1);
       }
@@ -69,18 +69,26 @@ export class PredictionService {
     for (let start = fromBlock; start <= toBlock; start += CHUNK_SIZE) {
       const end = Math.min(start + CHUNK_SIZE - 1, toBlock);
       
-      const chunkLogs = await this.executeWithRetry(async () => {
-        return await this.provider.getLogs({
-          ...filter,
-          fromBlock: start,
-          toBlock: end,
+      try {
+        const chunkLogs = await this.executeWithRetry(async () => {
+          return await this.provider.getLogs({
+            ...filter,
+            fromBlock: start,
+            toBlock: end,
+          });
         });
-      });
-      
-      logs.push(...chunkLogs);
-      
-      if (start + CHUNK_SIZE <= toBlock) {
-        await new Promise(resolve => setTimeout(resolve, QUERY_DELAY));
+        
+        logs.push(...chunkLogs);
+        
+        // Add extra delay between chunks
+        if (start + CHUNK_SIZE <= toBlock) {
+          await new Promise(resolve => setTimeout(resolve, QUERY_DELAY * 1.5));
+        }
+      } catch (error) {
+        console.error(`Error fetching logs for blocks ${start}-${end}:`, error);
+        // Continue with next chunk instead of failing completely
+        await new Promise(resolve => setTimeout(resolve, QUERY_DELAY * 2));
+        continue;
       }
     }
     
