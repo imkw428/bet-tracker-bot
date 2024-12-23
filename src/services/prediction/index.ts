@@ -80,37 +80,33 @@ export class PredictionService {
   async onNewBet(address: string, callback: (bet: BetEvent) => void) {
     const contract = await this.initializeContract();
     
-    const setupListeners = () => {
-      const bullListener = (sender: string, epoch: bigint, amount: bigint) => {
-        if (sender.toLowerCase() === address.toLowerCase()) {
-          callback({
-            type: 'bull',
-            epoch: Number(epoch),
-            amount: ethers.formatEther(amount),
-          });
-        }
-      };
-
-      const bearListener = (sender: string, epoch: bigint, amount: bigint) => {
-        if (sender.toLowerCase() === address.toLowerCase()) {
-          callback({
-            type: 'bear',
-            epoch: Number(epoch),
-            amount: ethers.formatEther(amount),
-          });
-        }
-      };
-
-      contract.on("BetBull", bullListener);
-      contract.on("BetBear", bearListener);
-
-      return () => {
-        contract.off("BetBull", bullListener);
-        contract.off("BetBear", bearListener);
-      };
+    const bullListener = (sender: string, epoch: bigint, amount: bigint) => {
+      if (sender.toLowerCase() === address.toLowerCase()) {
+        callback({
+          type: 'bull',
+          epoch: Number(epoch),
+          amount: ethers.formatEther(amount),
+        });
+      }
     };
 
-    return setupListeners();
+    const bearListener = (sender: string, epoch: bigint, amount: bigint) => {
+      if (sender.toLowerCase() === address.toLowerCase()) {
+        callback({
+          type: 'bear',
+          epoch: Number(epoch),
+          amount: ethers.formatEther(amount),
+        });
+      }
+    };
+
+    contract.on("BetBull", bullListener);
+    contract.on("BetBear", bearListener);
+
+    return () => {
+      contract.off("BetBull", bullListener);
+      contract.off("BetBear", bearListener);
+    };
   }
 
   setPollingInterval(intensive: boolean) {

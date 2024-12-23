@@ -32,55 +32,91 @@ export const WalletMonitor = () => {
 
   useEffect(() => {
     const loadWallets = async () => {
-      const savedWallets = await supabaseService.getWallets();
-      const walletsWithHistory = await Promise.all(
-        savedWallets.map(async w => {
-          const predictionService = new PredictionService();
-          const history = await predictionService.getWalletHistory(w.address, 0, 0);
-          return {
-            address: w.address,
-            note: w.note || '',
-            history,
-            recentBets: [],
-            created_at: w.created_at
-          };
-        })
-      );
-      setWallets(walletsWithHistory);
+      try {
+        const savedWallets = await supabaseService.getWallets();
+        const walletsWithHistory = await Promise.all(
+          savedWallets.map(async w => {
+            const predictionService = new PredictionService();
+            const history = await predictionService.getWalletHistory(w.address, 0, 0);
+            return {
+              address: w.address,
+              note: w.note || '',
+              history,
+              recentBets: [],
+              created_at: w.created_at
+            };
+          })
+        );
+        setWallets(walletsWithHistory);
+      } catch (error) {
+        console.error('載入錢包時發生錯誤:', error);
+        toast({
+          title: "錯誤",
+          description: "載入錢包時發生錯誤",
+          variant: "destructive",
+        });
+      }
     };
 
     loadWallets();
-  }, []);
+  }, [toast]);
 
   const handleWalletAdd = async (newWallet: any) => {
-    const predictionService = new PredictionService();
-    const history = await predictionService.getWalletHistory(newWallet.address, 0, 0);
-    
-    setWallets(prev => [...prev, {
-      address: newWallet.address,
-      note: newWallet.note || '',
-      history,
-      recentBets: [],
-      created_at: newWallet.created_at
-    }]);
+    try {
+      const predictionService = new PredictionService();
+      const history = await predictionService.getWalletHistory(newWallet.address, 0, 0);
+      
+      setWallets(prev => [...prev, {
+        address: newWallet.address,
+        note: newWallet.note || '',
+        history,
+        recentBets: [],
+        created_at: newWallet.created_at
+      }]);
+    } catch (error) {
+      console.error('添加錢包時發生錯誤:', error);
+      toast({
+        title: "錯誤",
+        description: "添加錢包時發生錯誤",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleWalletRemove = async (address: string) => {
-    const success = await supabaseService.deleteWallet(address);
-    if (success) {
-      setWallets(prev => prev.filter(w => w.address !== address));
+    try {
+      const success = await supabaseService.deleteWallet(address);
+      if (success) {
+        setWallets(prev => prev.filter(w => w.address !== address));
+      }
+    } catch (error) {
+      console.error('刪除錢包時發生錯誤:', error);
+      toast({
+        title: "錯誤",
+        description: "刪除錢包時發生錯誤",
+        variant: "destructive",
+      });
     }
   };
 
   const handleWalletNoteUpdate = async (address: string, note: string) => {
-    const success = await supabaseService.updateWalletNote(address, note);
-    if (success) {
-      setWallets(prev => prev.map(w => {
-        if (w.address === address) {
-          return { ...w, note };
-        }
-        return w;
-      }));
+    try {
+      const success = await supabaseService.updateWalletNote(address, note);
+      if (success) {
+        setWallets(prev => prev.map(w => {
+          if (w.address === address) {
+            return { ...w, note };
+          }
+          return w;
+        }));
+      }
+    } catch (error) {
+      console.error('更新錢包備註時發生錯誤:', error);
+      toast({
+        title: "錯誤",
+        description: "更新錢包備註時發生錯誤",
+        variant: "destructive",
+      });
     }
   };
 

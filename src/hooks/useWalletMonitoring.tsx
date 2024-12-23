@@ -11,7 +11,7 @@ export const useWalletMonitoring = (
 ) => {
   const { toast } = useToast();
   const [currentEpoch, setCurrentEpoch] = useState<number | null>(null);
-  const predictionServiceRef = useRef<PredictionService>();
+  const predictionServiceRef = useRef<PredictionService | null>(null);
   const cleanupFnsRef = useRef<(() => void)[]>([]);
 
   useEffect(() => {
@@ -27,10 +27,11 @@ export const useWalletMonitoring = (
   }, [monitoring]);
 
   useEffect(() => {
-    if (!monitoring || !predictionServiceRef.current) return;
+    if (!monitoring) return;
 
     let interval: NodeJS.Timeout;
-    const predictionService = predictionServiceRef.current;
+    const predictionService = new PredictionService();
+    predictionServiceRef.current = predictionService;
 
     const checkRoundTiming = async () => {
       try {
@@ -54,34 +55,38 @@ export const useWalletMonitoring = (
 
     return () => {
       clearTimeout(interval);
+      predictionServiceRef.current = null;
     };
   }, [monitoring]);
 
   useEffect(() => {
     if (!monitoring || !predictionServiceRef.current) return;
 
-    const predictionService = predictionServiceRef.current;
-
     const setupWalletListeners = async () => {
+      // Clean up existing listeners
       cleanupFnsRef.current.forEach(cleanup => cleanup());
       cleanupFnsRef.current = [];
 
-      const cleanupPromises = wallets.map(async wallet => {
-        const cleanup = await predictionService.onNewBet(wallet.address, (bet) => {
-          if (isSoundEnabled) {
-            notificationSound.play().catch(console.error);
-          }
+      const predictionService = predictionServiceRef.current;
+      if (!predictionService) return;
 
-          toast({
-            title: `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)} 新的${bet.type === 'bull' ? '看漲' : '看跌'}下注!`,
-            description: `金額: ${bet.amount} BNB，回合: ${bet.epoch}`,
+      for (const wallet of wallets) {
+        try {
+          const cleanup = await predictionService.onNewBet(wallet.address, (bet) => {
+            if (isSoundEnabled) {
+              notificationSound.play().catch(console.error);
+            }
+
+            toast({
+              title: `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)} 新的${bet.type === 'bull' ? '看漲' : '看跌'}下注!`,
+              description: `金額: ${bet.amount} BNB，回合: ${bet.epoch}`,
+            });
           });
-        });
-        return cleanup;
-      });
-
-      const cleanupFns = await Promise.all(cleanupPromises);
-      cleanupFnsRef.current = cleanupFns;
+          cleanupFnsRef.current.push(cleanup);
+        } catch (error) {
+          console.error(`設置錢包 ${wallet.address} 監聽器時發生錯誤:`, error);
+        }
+      }
     };
 
     setupWalletListeners();
