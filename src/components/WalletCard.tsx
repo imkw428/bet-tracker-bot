@@ -20,12 +20,14 @@ interface WalletCardProps {
 }
 
 export const WalletCard = ({ address, history, recentBets }: WalletCardProps) => {
-  // 計算贏得的回合
   const winningEpochs = history?.claims.map(claim => claim.epoch) || [];
-
-  // 從 recentBets 中提取最新的看漲和看跌下注
   const latestBullBet = recentBets.find(bet => bet.type === 'bull');
   const latestBearBet = recentBets.find(bet => bet.type === 'bear');
+
+  // 格式化金額到小數點後三位
+  const formatAmount = (amount: string) => {
+    return Number(amount).toFixed(3);
+  };
 
   return (
     <Card className="p-4">
@@ -34,7 +36,6 @@ export const WalletCard = ({ address, history, recentBets }: WalletCardProps) =>
       </h2>
 
       <div className="space-y-4">
-        {/* 贏得的回合 */}
         <div>
           <h3 className="font-bold mb-2">贏得的回合</h3>
           <div className="flex flex-wrap gap-2">
@@ -46,7 +47,6 @@ export const WalletCard = ({ address, history, recentBets }: WalletCardProps) =>
           </div>
         </div>
 
-        {/* 最近下注 */}
         <div>
           <h3 className="font-bold mb-2">最近下注</h3>
           <div className="space-y-2">
@@ -57,13 +57,12 @@ export const WalletCard = ({ address, history, recentBets }: WalletCardProps) =>
                   bet.type === 'bull' ? 'bg-win/10 text-win' : 'bg-loss/10 text-loss'
                 }`}
               >
-                {bet.type === 'bull' ? '看漲' : '看跌'} - {bet.amount} BNB (回合 {bet.epoch})
+                {bet.type === 'bull' ? '看漲' : '看跌'} - {formatAmount(bet.amount)} BNB (回合 {bet.epoch})
               </div>
             ))}
           </div>
         </div>
 
-        {/* 歷史記錄 */}
         {history && (
           <div>
             <h3 className="font-bold mb-2">歷史記錄</h3>
@@ -79,7 +78,7 @@ export const WalletCard = ({ address, history, recentBets }: WalletCardProps) =>
                 </h4>
                 {history.bulls.map((bet, i) => (
                   <div key={i} className="text-sm">
-                    回合 {bet.epoch}: {bet.amount} BNB
+                    回合 {bet.epoch}: {formatAmount(bet.amount)} BNB
                   </div>
                 ))}
               </div>
@@ -94,7 +93,7 @@ export const WalletCard = ({ address, history, recentBets }: WalletCardProps) =>
                 </h4>
                 {history.bears.map((bet, i) => (
                   <div key={i} className="text-sm">
-                    回合 {bet.epoch}: {bet.amount} BNB
+                    回合 {bet.epoch}: {formatAmount(bet.amount)} BNB
                   </div>
                 ))}
               </div>
@@ -102,7 +101,7 @@ export const WalletCard = ({ address, history, recentBets }: WalletCardProps) =>
                 <h4 className="font-bold text-neutral mb-2">獲勝領取</h4>
                 {history.claims.map((claim, i) => (
                   <div key={i} className="text-sm">
-                    回合 {claim.epoch}: {claim.amount} BNB
+                    回合 {claim.epoch}: {formatAmount(claim.amount)} BNB
                   </div>
                 ))}
               </div>
