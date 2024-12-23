@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { PredictionService } from '@/services/prediction';
-import { X } from 'lucide-react';
 import { WalletCard } from './WalletCard';
+import { WalletList } from './wallet/WalletList';
+import { MonitorStatus } from './wallet/MonitorStatus';
 
 interface Bet {
   type: 'bull' | 'bear';
@@ -30,20 +30,22 @@ export const WalletMonitor = () => {
   const [newAddress, setNewAddress] = useState('');
   const [currentEpoch, setCurrentEpoch] = useState<number | null>(null);
   const [monitoring, setMonitoring] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [wallets, setWallets] = useState<WalletData[]>([]);
   
   useEffect(() => {
     const predictionService = new PredictionService();
     let interval: NodeJS.Timeout;
 
-    if (monitoring && wallets.length > 0) {
+    if (monitoring && wallets.length > 0 && !isPaused) {
       const updateData = async () => {
         try {
           const epoch = await predictionService.getCurrentEpoch();
           setCurrentEpoch(Number(epoch));
 
-          // 每個錢包更新之間增加延遲
           for (const wallet of wallets) {
+            if (isPaused) break; // 如果在更新過程中被暫停，立即停止
+            
             try {
               const history = await predictionService.getWalletHistory(wallet.address, 0, 0);
               setWallets(prevWallets =>
@@ -54,7 +56,6 @@ export const WalletMonitor = () => {
                   return w;
                 })
               );
-              // 每次更新錢包後等待 2 秒
               await new Promise(resolve => setTimeout(resolve, 2000));
             } catch (error) {
               console.error(`Error updating wallet ${wallet.address}:`, error);
@@ -76,27 +77,28 @@ export const WalletMonitor = () => {
       };
 
       updateData();
-      // 將更新間隔從 10 秒增加到 30 秒
       interval = setInterval(updateData, 30000);
 
       wallets.forEach(wallet => {
         predictionService.onNewBet(wallet.address, (bet) => {
-          setWallets(prevWallets => 
-            prevWallets.map(w => {
-              if (w.address === wallet.address) {
-                return {
-                  ...w,
-                  recentBets: [bet, ...w.recentBets].slice(0, 10)
-                };
-              }
-              return w;
-            })
-          );
+          if (!isPaused) {
+            setWallets(prevWallets => 
+              prevWallets.map(w => {
+                if (w.address === wallet.address) {
+                  return {
+                    ...w,
+                    recentBets: [bet, ...w.recentBets].slice(0, 10)
+                  };
+                }
+                return w;
+              })
+            );
 
-          toast({
-            title: `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)} 新的${bet.type === 'bull' ? '看漲' : '看跌'}下注!`,
-            description: `金額: ${bet.amount} BNB，回合: ${bet.epoch}`,
-          });
+            toast({
+              title: `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)} 新的${bet.type === 'bull' ? '看漲' : '看跌'}下注!`,
+              description: `金額: ${bet.amount} BNB，回合: ${bet.epoch}`,
+            });
+          }
         });
       });
     }
@@ -104,7 +106,7 @@ export const WalletMonitor = () => {
     return () => {
       clearInterval(interval);
     };
-  }, [monitoring, wallets, toast]);
+  }, [monitoring, wallets, toast, isPaused]);
 
   const addWallet = () => {
     if (!newAddress) {
@@ -147,6 +149,15 @@ export const WalletMonitor = () => {
       return;
     }
     setMonitoring(true);
+    setIsPaused(false);
+  };
+
+  const togglePause = () => {
+    setIsPaused(!isPaused);
+    toast({
+      title: !isPaused ? "監控已暫停" : "監控已恢復",
+      description: !isPaused ? "所有請求已暫停" : "系統將繼續監控錢包",
+    });
   };
 
   return (
@@ -159,45 +170,39 @@ export const WalletMonitor = () => {
             value={newAddress}
             onChange={(e) => setNewAddress(e.target.value)}
             className="flex-1"
+            disabled={monitoring && !isPaused}
           />
-          <Button onClick={addWallet} disabled={monitoring}>
+          <Button onClick={addWallet} disabled={monitoring && !isPaused}>
             添加錢包
           </Button>
           <Button onClick={startMonitoring} disabled={monitoring}>
             {monitoring ? "監控中..." : "開始監控"}
           </Button>
+          {monitoring && (
+            <Button 
+              onClick={togglePause}
+              variant={isPaused ? "default" : "secondary"}
+            >
+              {isPaused ? "恢復監控" : "暫停監控"}
+            </Button>
+          )}
         </div>
 
-        {/* 錢包列表 */}
-        <div className="space-y-2">
-          {wallets.map(wallet => (
-            <div key={wallet.address} className="flex items-center gap-2 bg-muted/50 p-2 rounded">
-              <span>{wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="ml-auto"
-                onClick={() => removeWallet(wallet.address)}
-                disabled={monitoring}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
+        <WalletList 
+          wallets={wallets} 
+          onRemoveWallet={removeWallet}
+          isPaused={isPaused || !monitoring}
+        />
       </div>
 
       {monitoring && (
         <div className="space-y-6">
-          <Card className="p-4">
-            <h2 className="text-xl font-bold mb-4">當前狀態</h2>
-            <div className="space-y-2">
-              <p>當前回合: <span className="animate-blink">{currentEpoch}</span></p>
-              <p>監控錢包數量: {wallets.length}</p>
-            </div>
-          </Card>
+          <MonitorStatus
+            currentEpoch={currentEpoch}
+            walletsCount={wallets.length}
+            isPaused={isPaused}
+          />
 
-          {/* 使用新的 WalletCard 組件 */}
           {wallets.map(wallet => (
             <WalletCard
               key={wallet.address}
