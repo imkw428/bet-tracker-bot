@@ -48,12 +48,7 @@ export class PredictionService {
       
       if (isLimitExceeded && retryCount < MAX_RETRIES) {
         const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-        await new Promise(resolve => setTimeout(resolve, backoffDelay));
-        
-        if (isLimitExceeded) {
-          await new Promise(resolve => setTimeout(resolve, QUERY_DELAY * 2));
-        }
-        
+        await new Promise(resolve => setTimeout(resolve, backoffDelay + QUERY_DELAY));
         return this.executeWithRetry(operation, retryCount + 1);
       }
       
@@ -85,7 +80,7 @@ export class PredictionService {
       logs.push(...chunkLogs);
       
       if (start + CHUNK_SIZE <= toBlock) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, QUERY_DELAY));
       }
     }
     

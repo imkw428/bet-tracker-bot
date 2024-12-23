@@ -7,11 +7,11 @@ export const PREDICTION_ABI = [
 ];
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-export const BLOCKS_PER_QUERY = 100; // Significantly reduced from 500 to avoid rate limits
-export const QUERY_DELAY = 3000; // Increased delay between requests
+export const BLOCKS_PER_QUERY = 50; // Reduced from 100 to 50
+export const QUERY_DELAY = 5000; // Increased from 3000 to 5000ms
 export const RPC_SWITCH_DELAY = 8000;
 export const MAX_RETRIES = 5;
-export const CHUNK_SIZE = 20; // Number of blocks per chunk when splitting requests
+export const CHUNK_SIZE = 10; // Reduced from 20 to 10 blocks per chunk
 
 export const BSC_NETWORK = {
   name: 'bnb',
