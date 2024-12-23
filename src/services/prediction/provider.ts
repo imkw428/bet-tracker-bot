@@ -5,9 +5,9 @@ export class ProviderService {
   private provider: ethers.JsonRpcProvider;
   private currentRpcIndex: number = 0;
   private retryCount: number = 0;
-  private readonly maxRetries: number = 5; // Increased from 3
-  private readonly normalPollingInterval = 5000; // Increased from 3000
-  private readonly intensivePollingInterval = 2000; // Increased from 1000
+  private readonly maxRetries: number = 5;
+  private readonly normalPollingInterval = 5000;
+  private readonly intensivePollingInterval = 2000;
   private lastRequestTime: number = 0;
   private failedEndpoints: Set<string> = new Set();
 
@@ -19,13 +19,11 @@ export class ProviderService {
     const provider = new ethers.JsonRpcProvider(RPC_ENDPOINTS[this.currentRpcIndex], {
       chainId: 56,
       name: 'bnb',
-      ensAddress: null,
-      staticNetwork: true // Add static network optimization
+      ensAddress: null
     });
     
     provider.pollingInterval = this.normalPollingInterval;
     
-    // Add event listeners for connection issues
     provider.on('error', (error) => {
       console.error(`Provider error on ${RPC_ENDPOINTS[this.currentRpcIndex]}:`, error);
       this.failedEndpoints.add(RPC_ENDPOINTS[this.currentRpcIndex]);

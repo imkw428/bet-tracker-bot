@@ -7,11 +7,11 @@ export const PREDICTION_ABI = [
 ];
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
-export const BLOCKS_PER_QUERY = 100; // Reduced from 200
-export const REQUEST_DELAY = 3000; // Increased from 2000
+export const BLOCKS_PER_QUERY = 100;
+export const REQUEST_DELAY = 3000;
 
-// Updated RPC endpoints with more reliable nodes
 export const RPC_ENDPOINTS = [
+  "https://newest-quaint-needle.bsc.quiknode.pro/7af7a237cb588bf7328c258d9878a3c099c3356b",
   "https://bsc-dataseed1.binance.org",
   "https://bsc-dataseed2.binance.org",
   "https://bsc-dataseed3.binance.org",
