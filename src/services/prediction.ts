@@ -5,7 +5,9 @@ import {
   BLOCKS_PER_QUERY,
   QUERY_DELAY,
   CHUNK_SIZE,
-  MAX_RETRIES
+  MAX_RETRIES,
+  BSC_NETWORK,
+  RPC_ENDPOINTS
 } from './blockchain/constants';
 import { ProviderManager } from './blockchain/provider';
 import { EventCache } from './blockchain/eventCache';
@@ -43,25 +45,13 @@ export class PredictionService {
       console.error(`Operation failed (attempt ${retryCount + 1}/${MAX_RETRIES}):`, error);
 
       const isLimitExceeded = error.message?.includes('limit exceeded');
-      const isNetworkError = 
-        error.code === 'NETWORK_ERROR' ||
-        error.code === 'TIMEOUT' ||
-        error.code === 'SERVER_ERROR' ||
-        error.code === 'CALL_EXCEPTION' ||
-        error.message?.includes('failed to meet quorum') ||
-        error.message?.includes('Failed to fetch');
-
-      if ((isLimitExceeded || isNetworkError) && retryCount < MAX_RETRIES) {
+      
+      if (isLimitExceeded && retryCount < MAX_RETRIES) {
         const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 10000);
         await new Promise(resolve => setTimeout(resolve, backoffDelay));
         
         if (isLimitExceeded) {
           await new Promise(resolve => setTimeout(resolve, QUERY_DELAY * 2));
-        }
-        
-        if (isNetworkError) {
-          this.provider = await this.providerManager.switchToNextRpc();
-          this.contract = new ethers.Contract(PREDICTION_ADDRESS, PREDICTION_ABI, this.provider);
         }
         
         return this.executeWithRetry(operation, retryCount + 1);
@@ -94,7 +84,6 @@ export class PredictionService {
       
       logs.push(...chunkLogs);
       
-      // Add delay between chunks to avoid rate limiting
       if (start + CHUNK_SIZE <= toBlock) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
