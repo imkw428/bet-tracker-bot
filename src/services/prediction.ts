@@ -194,15 +194,14 @@ export class PredictionService {
     this.wsContract.on("BetBear", bearHandler);
   }
 
-  // Add cleanup method
   cleanup() {
     // Remove all event listeners
     Object.values(this.eventListeners).forEach(removeListener => removeListener());
     this.eventListeners = {};
     
     // Close WebSocket connection
-    if (this.wsProvider._websocket) {
-      this.wsProvider._websocket.close();
+    if (this.wsProvider.websocket) {
+      this.wsProvider.websocket.close();
     }
   }
 }
