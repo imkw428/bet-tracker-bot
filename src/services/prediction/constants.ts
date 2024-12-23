@@ -8,13 +8,13 @@ export const ABI = [
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
 
-// 進一步減少批次大小到5個區塊
-export const BLOCKS_PER_QUERY = 5;
+// 每次查詢3個區塊
+export const BLOCKS_PER_QUERY = 3;
 
-// 增加請求延遲到15秒
-export const REQUEST_DELAY = 15000;
+// 查詢延遲設為8秒
+export const REQUEST_DELAY = 8000;
 
-// 更新RPC端點列表，使用更可靠的節點
+// 使用 BNB Chain 官方節點
 export const RPC_ENDPOINTS = [
   "https://bsc-dataseed1.bnbchain.org",
   "https://bsc-dataseed2.bnbchain.org",
