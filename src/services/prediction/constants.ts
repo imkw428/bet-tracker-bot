@@ -8,20 +8,16 @@ export const PREDICTION_ABI = [
 
 export const PREDICTION_ADDRESS = "0x18B2A687610328590Bc8F2e5fEdDe3b582A49cdA";
 
-// 減少批次大小以避免速率限制
-export const BLOCKS_PER_QUERY = 10;
+export const BLOCKS_PER_QUERY = 100; // 降低每次查詢的區塊數量
 
-// 增加請求間隔
-export const REQUEST_DELAY = 15000;
+export const REQUEST_DELAY = 3000; // 增加請求延遲到 3 秒
 
-// QuickNode endpoints
+// 更新 RPC 節點列表，使用更穩定的節點
 export const RPC_ENDPOINTS = [
-  {
-    http: "https://newest-quaint-needle.bsc.quiknode.pro/7af7a237cb588bf7328c258d9878a3c099c3356b/",
-    ws: "wss://newest-quaint-needle.bsc.quiknode.pro/7af7a237cb588bf7328c258d9878a3c099c3356b/"
-  },
-  "https://bsc-dataseed1.binance.org",
-  "https://bsc-dataseed2.binance.org",
-  "https://bsc-dataseed3.binance.org",
-  "https://bsc-dataseed4.binance.org",
+  "https://bsc.publicnode.com",
+  "https://1rpc.io/bnb",
+  "https://bsc.meowrpc.com",
+  "https://binance.nodereal.io",
+  "https://bsc-mainnet.public.blastapi.io",
+  "https://bsc-rpc.gateway.pokt.network"
 ];

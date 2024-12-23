@@ -1,8 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { WalletAnalytics } from "@/types/wallet";
-import { formatDistanceToNow } from 'date-fns';
-import { zhTW } from 'date-fns/locale';
 
 interface Bet {
   type: 'bull' | 'bear';
@@ -23,7 +21,6 @@ interface WalletCardProps {
   note: string;
   analytics?: WalletAnalytics;
   firstSeen: string;
-  totalTimeOnList?: number;
 }
 
 export const WalletCard = ({ 
@@ -32,8 +29,7 @@ export const WalletCard = ({
   recentBets, 
   note, 
   analytics,
-  firstSeen,
-  totalTimeOnList = 0
+  firstSeen 
 }: WalletCardProps) => {
   const winningEpochs = history?.claims.map(claim => claim.epoch) || [];
   const hasHistory = history && (
@@ -41,21 +37,6 @@ export const WalletCard = ({
     history.bears.length > 0 || 
     history.claims.length > 0
   );
-
-  // 格式化累計時間
-  const formatTotalTime = (minutes: number) => {
-    if (minutes < 60) {
-      return `${minutes} 分鐘`;
-    } else if (minutes < 1440) { // 24小時內
-      const hours = Math.floor(minutes / 60);
-      const mins = minutes % 60;
-      return `${hours} 小時 ${mins} 分鐘`;
-    } else { // 超過一天
-      const days = Math.floor(minutes / 1440);
-      const hours = Math.floor((minutes % 1440) / 60);
-      return `${days} 天 ${hours} 小時`;
-    }
-  };
 
   return (
     <Card className="p-4">
@@ -66,10 +47,7 @@ export const WalletCard = ({
               {address.slice(0, 6)}...{address.slice(-4)}
             </h2>
             <p className="text-xs text-muted-foreground">
-              首次發現: {firstSeen}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              累計時間: {formatTotalTime(totalTimeOnList)}
+              首次出現: {firstSeen}
             </p>
             <Badge variant={hasHistory ? "default" : "secondary"} className="mt-1">
               {hasHistory ? "舊錢包" : "新錢包"}

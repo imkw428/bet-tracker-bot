@@ -29,133 +29,60 @@ class SupabaseService {
   }
 
   async getWallets(): Promise<WalletData[]> {
-    try {
-      const { data, error } = await this.client
-        .from('wallets')
-        .select('address, note, created_at')
-        .order('created_at', { ascending: true });
+    const { data, error } = await this.client
+      .from('wallets')
+      .select('address, note, created_at')
+      .order('created_at', { ascending: true });
 
-      if (error) {
-        console.error('獲取錢包列表失敗:', error);
-        return [];
-      }
-
-      return data || [];
-    } catch (error) {
+    if (error) {
       console.error('獲取錢包列表失敗:', error);
       return [];
     }
-  }
 
-  async checkWalletExists(address: string): Promise<boolean> {
-    try {
-      const { data, error } = await this.client
-        .from('wallets')
-        .select('address')
-        .eq('address', address)
-        .single();
-
-      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows returned
-        console.error('檢查錢包是否存在時發生錯誤:', error);
-        return false;
-      }
-
-      return !!data;
-    } catch (error) {
-      console.error('檢查錢包是否存在時發生錯誤:', error);
-      return false;
-    }
+    return data || [];
   }
 
   async addWallet(address: string, note: string = ''): Promise<WalletData | null> {
-    try {
-      // First check if wallet exists
-      const exists = await this.checkWalletExists(address);
-      if (exists) {
-        console.error('錢包地址已存在');
-        return null;
-      }
+    const { data, error } = await this.client
+      .from('wallets')
+      .insert([{ address, note }])
+      .select()
+      .single();
 
-      const now = new Date().toISOString();
-      const { data, error } = await this.client
-        .from('wallets')
-        .insert([{ 
-          address, 
-          note, 
-          created_at: now
-        }])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('添加錢包失敗:', error);
-        return null;
-      }
-
-      return data;
-    } catch (error) {
+    if (error) {
       console.error('添加錢包失敗:', error);
       return null;
     }
+
+    return data;
   }
 
   async updateWalletNote(address: string, note: string): Promise<boolean> {
-    try {
-      const { error } = await this.client
-        .from('wallets')
-        .update({ note })
-        .eq('address', address);
+    const { error } = await this.client
+      .from('wallets')
+      .update({ note })
+      .eq('address', address);
 
-      if (error) {
-        console.error('更新錢包備註失敗:', error);
-        return false;
-      }
-
-      return true;
-    } catch (error) {
+    if (error) {
       console.error('更新錢包備註失敗:', error);
       return false;
     }
-  }
 
-  async updateWalletTime(address: string): Promise<boolean> {
-    try {
-      const { error } = await this.client
-        .from('wallets')
-        .update({ 
-          updated_at: new Date().toISOString() 
-        })
-        .eq('address', address);
-
-      if (error) {
-        console.error('更新錢包時間失敗:', error);
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('更新錢包時間失敗:', error);
-      return false;
-    }
+    return true;
   }
 
   async deleteWallet(address: string): Promise<boolean> {
-    try {
-      const { error } = await this.client
-        .from('wallets')
-        .delete()
-        .eq('address', address);
+    const { error } = await this.client
+      .from('wallets')
+      .delete()
+      .eq('address', address);
 
-      if (error) {
-        console.error('刪除錢包失敗:', error);
-        return false;
-      }
-
-      return true;
-    } catch (error) {
+    if (error) {
       console.error('刪除錢包失敗:', error);
       return false;
     }
+
+    return true;
   }
 }
 

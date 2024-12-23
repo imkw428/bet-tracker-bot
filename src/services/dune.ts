@@ -1,71 +1,86 @@
 import { DuneClient } from "@duneanalytics/client-sdk";
-import { toast } from "@/components/ui/use-toast";
+import { supabaseService } from './supabase';
+import { walletAnalyticsService } from './walletAnalytics';
 
 class DuneService {
-  // private client: DuneClient;
-  private checkInterval: number = 300; // 5分鐘檢查一次
+  private client: DuneClient;
   private timer: NodeJS.Timeout | null = null;
+  private readonly POLLING_INTERVAL = 5 * 60 * 1000; // 5分钟
 
   constructor() {
-    // 暫時停用 Dune API 初始化
-    // try {
-    //   this.client = new DuneClient("YOUR_API_KEY");
-    // } catch (error) {
-    //   console.error("初始化 Dune 客戶端時發生錯誤:", error);
-    // }
-    console.info("Dune API 功能已暫時停用");
+    this.client = new DuneClient("MdStLrxoohfepf1sWAbISw21di5WQ8Sa");
   }
 
-  async fetchWallets() {
-    // 暫時返回空數組
-    console.info("Dune API 已停用，返回空數據");
-    return [];
-    
-    // try {
-    //   console.info("開始從 Dune 獲取錢包數據...");
-    //   const result = await this.client.getLatestResult("3247234");
-    //   return result.rows;
-    // } catch (error) {
-    //   console.error("從 Dune 獲取錢包時發生錯誤:", error);
-    //   return [];
-    // }
+  private async fetchWallets(): Promise<string[]> {
+    try {
+      const result = await this.client.getLatestResult({
+        queryId: 4461837
+      });
+      
+      if (!result || !Array.isArray(result.result?.rows)) {
+        console.warn('Unexpected Dune API response format:', result);
+        return [];
+      }
+
+      return result.result.rows.map((row: any) => 
+        (row.address || '').toLowerCase()
+      ).filter(Boolean);
+    } catch (error) {
+      console.error('从 Dune 获取钱包时发生错误:', error);
+      return [];
+    }
   }
 
-  async checkWallets() {
-    // 暫時停用錢包檢查
-    console.info("Dune API 錢包檢查功能已停用");
-    // try {
-    //   console.info("開始更新錢包追蹤狀態...");
-    //   const wallets = await this.fetchWallets();
-    //   // 處理錢包數據...
-    // } catch (error) {
-    //   console.error("檢查錢包時發生錯誤:", error);
-    // }
+  private async updateWalletTracking(currentWallets: string[]) {
+    // 更新所有钱包的活跃状态
+    const existingWallets = await supabaseService.getWallets();
+    const existingAddresses = new Set(existingWallets.map(w => w.address.toLowerCase()));
+
+    // 更新所有已知钱包的活跃状态
+    for (const address of existingAddresses) {
+      const isPresent = currentWallets.includes(address);
+      walletAnalyticsService.updateWalletActivity(address, isPresent);
+    }
+
+    // 添加新钱包到监控列表
+    for (const address of currentWallets) {
+      if (!existingAddresses.has(address)) {
+        await supabaseService.addWallet(address);
+        walletAnalyticsService.updateWalletActivity(address, true);
+      }
+    }
   }
 
-  startTracking() {
-    console.info("Dune API 追蹤功能已停用");
-    // console.info("開始追蹤錢包...");
-    // console.info(`已設置定期檢查，間隔: ${this.checkInterval} 秒`);
-    
-    // // 立即執行一次
-    // this.checkWallets();
-    
-    // // 設置定時器
-    // if (this.timer) {
-    //   clearInterval(this.timer);
-    // }
-    
-    // this.timer = setInterval(() => {
-    //   this.checkWallets();
-    // }, this.checkInterval * 1000);
+  public async startTracking() {
+    if (this.timer) {
+      return;
+    }
+
+    const checkWallets = async () => {
+      const currentWallets = await this.fetchWallets();
+      await this.updateWalletTracking(currentWallets);
+    };
+
+    // 立即执行一次
+    await checkWallets();
+
+    // 设置定期检查
+    this.timer = setInterval(checkWallets, this.POLLING_INTERVAL);
   }
 
-  stopTracking() {
+  public stopTracking() {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
     }
+  }
+
+  public getWalletAnalytics(address: string) {
+    return walletAnalyticsService.analyzeWallet(address);
+  }
+
+  public getWalletActivity(address: string) {
+    return walletAnalyticsService.getWalletActivity(address);
   }
 }
 

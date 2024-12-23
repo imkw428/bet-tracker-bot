@@ -22,7 +22,7 @@ export class LogService {
   async queryLogsInBatches(address: string): Promise<WalletHistory> {
     const provider = await this.providerService.getProvider();
     const latestBlock = await provider.getBlockNumber();
-    const fromBlock = latestBlock - 200; // 減少歷史區塊範圍
+    const fromBlock = latestBlock - 1000; // Reduced historical block range
     const ranges = await this.getBlockRanges(fromBlock, latestBlock);
 
     const filter = {
@@ -43,9 +43,6 @@ export class LogService {
 
     for (const [start, end] of ranges) {
       try {
-        // 增加請求間隔
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
         const logs = await provider.getLogs({
           ...filter,
           fromBlock: start,
@@ -77,8 +74,7 @@ export class LogService {
         }
       } catch (error) {
         console.error(`Error fetching logs for range ${start}-${end}:`, error);
-        // 遇到錯誤時繼續下一個範圍
-        continue;
+        throw error;
       }
     }
 
