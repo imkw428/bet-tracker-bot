@@ -26,7 +26,7 @@ export class ProviderManager {
 
     // In ethers v6, we need to handle the close event differently
     if (provider.websocket) {
-      provider.websocket.onclose = () => {
+      provider.websocket.close = () => {
         console.log('WebSocket connection closed. Attempting to reconnect...');
         setTimeout(() => {
           this.createWebSocketProvider();
