@@ -21,5 +21,9 @@ export const BSC_NETWORK = {
 
 export const WS_ENDPOINT = "wss://bsc-ws-node.nariox.org:443";
 export const RPC_ENDPOINTS = [
-  "https://bsc-dataseed.binance.org"
+  "https://bsc-mainnet.public.blastapi.io",
+  "https://bsc.publicnode.com",
+  "https://binance.llamarpc.com",
+  "https://bsc-mainnet.nodereal.io/v1/64a9df0874fb4a93b9d0a3849de012d3",
+  "https://rpc.ankr.com/bsc"
 ];
